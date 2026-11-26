@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: copia il design di qualsiasi sito come prompt per l’AI",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Copia colori, font, layout e animazioni di un sito in un prompt pronto da incollare in Claude Code, Cursor, Lovable, v0 e Bolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

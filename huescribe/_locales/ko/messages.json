@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: 웹사이트 디자인을 복사해 AI 프롬프트로",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "어떤 웹사이트든 색상, 글꼴, 레이아웃, 애니메이션을 복사해 Claude Code, Cursor, Lovable, v0, Bolt에 바로 붙여 넣는 프롬프트로 만들어 드려요.",
+    "description": "Short description (max 132 characters)."
+  }
+}

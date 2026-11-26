@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: Herhangi bir sitenin tasarımını AI prompt'u olarak kopyala",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Bir sitenin renk, yazı tipi, düzen ve animasyonlarını kopyala: Claude Code, Cursor, Lovable, v0 ve Bolt'a yapıştırmaya hazır prompt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: скопировать дизайн любого сайта в промпт для ИИ",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Копируйте цвета, шрифты, макет и анимации любого сайта в готовый к вставке промпт для Claude Code, Cursor, Lovable, v0 и Bolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

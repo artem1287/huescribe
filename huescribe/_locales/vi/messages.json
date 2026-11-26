@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: sao chép thiết kế website bất kỳ thành prompt AI",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Sao chép màu sắc, phông chữ, bố cục, hiệu ứng động của website thành prompt dán ngay vào Claude Code, Cursor, Lovable, v0 và Bolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

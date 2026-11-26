@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Navigation bar options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit}
+.nv-sky{background:#5f86a3 url(/_blob/73a529ddad7b2abea69173e4d7205e06) 50% 30% / cover no-repeat}
+.nv-pick{position:relative;display:inline-block;isolation:isolate;letter-spacing:.02em}
+.nv-pick i{position:absolute;z-index:-1;left:.03em;right:-.02em;top:-.01em;bottom:-.02em;background:rgba(185,217,106,.28);box-shadow:inset 0 0 0 1.5px #5b6f2a}
+.nv-pick i::before,.nv-pick i::after{content:"";position:absolute;width:6px;height:6px;background:#fff;border:1.5px solid #5b6f2a}
+.nv-pick i::before{left:-3px;top:-3px}.nv-pick i::after{right:-3px;bottom:-6px}
+.nv-link{text-decoration:none;font-size:15px;font-weight:500;padding:12px 2px;min-height:44px;box-sizing:border-box;display:inline-flex;align-items:center}
+.nv-link:hover{text-decoration:underline;text-underline-offset:4px}
+.nv-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:999px;font-size:15px;font-weight:500;text-decoration:none;box-sizing:border-box}
+</style>
+</helmet>
+<div style="width: 1440px; box-sizing: border-box; padding: 56px 0 72px; background: #f4f3ee; font-family: Inter, system-ui, sans-serif; color: #151515; display: flex; flex-direction: column; gap: 48px">
+
+<header style="padding: 0 64px; display: flex; flex-direction: column; gap: 8px">
+<h1 style="margin: 0; font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 56px; letter-spacing: -0.03em">Navigation bar options</h1>
+<p style="margin: 0; font-size: 17px; color: #55554f">Five ways to put a top bar on the homepage. Each sits on the real hero so you can judge it in place.</p>
+</header>
+
+<!-- 1 -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 0 64px; display: flex; align-items: baseline; gap: 14px"><b style="font-size: 20px">1 · Clear over the photo</b><span style="font-size: 15px; color: #55554f">No background; white text sits on the sky. On phones: logo + button, links move into a menu.</span></div>
+<div class="nv-sky" style="height: 160px">
+<nav aria-label="Option 1" style="max-width: 1300px; margin: 0 auto; padding: 22px 0; display: flex; align-items: center; justify-content: space-between; color: #ffffff">
+<a href="#" style="display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 20px; letter-spacing: -0.01em"><span style="display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #B9D96A; color: #151515"><svg width="26" height="26" viewBox="10 10 44 44" aria-hidden="true"><defs><mask id="nv-h1" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"></rect><circle cx="32" cy="32" r="10.5" fill="#000"></circle></mask></defs><g fill="currentColor" mask="url(#nv-h1)"><circle cx="42.61" cy="21.39" r="11"></circle><circle cx="42.61" cy="42.61" r="11"></circle><circle cx="21.39" cy="42.61" r="11"></circle><circle cx="21.39" cy="21.39" r="11"></circle></g><path d="M27 31q5 6 10 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg></span>Huescribe</a>
+<div style="display: flex; align-items: center; gap: 32px"><a class="nv-link" href="#">How it works</a><a class="nv-link" href="#">Sample sites</a><a class="nv-link" href="#">Privacy</a></div>
+<a class="nv-btn" href="#" style="background: #B9D96A; color: #151515">Add to Chrome</a>
+</nav>
+</div>
+</section>
+
+<!-- 2 -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 0 64px; display: flex; align-items: baseline; gap: 14px"><b style="font-size: 20px">2 · Floating pill</b><span style="font-size: 15px; color: #55554f">A white rounded bar that floats a little below the top and stays while you scroll. On phones: the same pill, links in a menu.</span></div>
+<div class="nv-sky" style="height: 160px; padding-top: 20px; box-sizing: border-box">
+<nav aria-label="Option 2" style="width: fit-content; margin: 0 auto; padding: 6px 6px 6px 18px; display: flex; align-items: center; gap: 28px; border-radius: 999px; background: rgba(255,255,255,0.94); box-shadow: 0 10px 30px -12px rgba(21,21,21,0.35)">
+<a href="#" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 600; font-size: 17px"><span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #B9D96A"><svg width="21" height="21" viewBox="10 10 44 44" aria-hidden="true"><defs><mask id="nv-h2" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"></rect><circle cx="32" cy="32" r="10.5" fill="#000"></circle></mask></defs><g fill="#151515" mask="url(#nv-h2)"><circle cx="42.61" cy="21.39" r="11"></circle><circle cx="42.61" cy="42.61" r="11"></circle><circle cx="21.39" cy="42.61" r="11"></circle><circle cx="21.39" cy="21.39" r="11"></circle></g><path d="M27 31q5 6 10 0" fill="none" stroke="#151515" stroke-width="3" stroke-linecap="round"></path></svg></span>Huescribe</a>
+<a class="nv-link" href="#" style="color: #3f3f3a">How it works</a><a class="nv-link" href="#" style="color: #3f3f3a">Sample sites</a><a class="nv-link" href="#" style="color: #3f3f3a">Privacy</a>
+<a class="nv-btn" href="#" style="background: #151515; color: #ffffff">Add to Chrome</a>
+</nav>
+</div>
+</section>
+
+<!-- 3 -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 0 64px; display: flex; align-items: baseline; gap: 14px"><b style="font-size: 20px">3 · Light bar with the "Picked" wordmark</b><span style="font-size: 15px; color: #55554f">An off-white strip above the hero that shows the full logo. On phones: wordmark + button.</span></div>
+<div>
+<nav aria-label="Option 3" style="background: #fcfcfa; border-bottom: 1px solid #e5e3dc">
+<div style="max-width: 1300px; margin: 0 auto; padding: 14px 0; display: flex; align-items: center; justify-content: space-between">
+<a href="#" style="text-decoration: none; font-weight: 600; font-size: 24px; padding: 8px 0"><span class="nv-pick"><i></i>Hue</span><span style="letter-spacing: .02em">scribe</span></a>
+<div style="display: flex; align-items: center; gap: 28px"><a class="nv-link" href="#" style="color: #3f3f3a">How it works</a><a class="nv-link" href="#" style="color: #3f3f3a">Sample sites</a><a class="nv-link" href="#" style="color: #3f3f3a">Privacy</a><a class="nv-btn" href="#" style="background: #B9D96A; color: #151515">Add to Chrome</a></div>
+</div>
+</nav>
+<div class="nv-sky" style="height: 92px"></div>
+</div>
+</section>
+
+<!-- 4 -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 0 64px; display: flex; align-items: baseline; gap: 14px"><b style="font-size: 20px">4 · Dark ink bar</b><span style="font-size: 15px; color: #55554f">A near-black strip; the green logo and button pop most here. On phones: logo + button.</span></div>
+<div>
+<nav aria-label="Option 4" style="background: #151515; color: #ffffff">
+<div style="max-width: 1300px; margin: 0 auto; padding: 12px 0; display: flex; align-items: center; justify-content: space-between">
+<a href="#" style="display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 19px"><span style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: #B9D96A"><svg width="24" height="24" viewBox="10 10 44 44" aria-hidden="true"><defs><mask id="nv-h4" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"></rect><circle cx="32" cy="32" r="10.5" fill="#000"></circle></mask></defs><g fill="#151515" mask="url(#nv-h4)"><circle cx="42.61" cy="21.39" r="11"></circle><circle cx="42.61" cy="42.61" r="11"></circle><circle cx="21.39" cy="42.61" r="11"></circle><circle cx="21.39" cy="21.39" r="11"></circle></g><path d="M27 31q5 6 10 0" fill="none" stroke="#151515" stroke-width="3" stroke-linecap="round"></path></svg></span>Huescribe</a>
+<div style="display: flex; align-items: center; gap: 28px"><a class="nv-link" href="#" style="color: #d9d8d2">How it works</a><a class="nv-link" href="#" style="color: #d9d8d2">Sample sites</a><a class="nv-link" href="#" style="color: #d9d8d2">Privacy</a><a class="nv-btn" href="#" style="background: #B9D96A; color: #151515">Add to Chrome</a></div>
+</div>
+</nav>
+<div class="nv-sky" style="height: 92px"></div>
+</div>
+</section>
+
+<!-- 5 -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 0 64px; display: flex; align-items: baseline; gap: 14px"><b style="font-size: 20px">5 · Just the logo and one button</b><span style="font-size: 15px; color: #55554f">No links at all, since the homepage is one page. The calmest option; identical on phones.</span></div>
+<div class="nv-sky" style="height: 160px">
+<nav aria-label="Option 5" style="max-width: 1300px; margin: 0 auto; padding: 22px 0; display: flex; align-items: center; justify-content: space-between; color: #ffffff">
+<a href="#" aria-label="Huescribe home" style="display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #ffffff; color: #151515"><svg width="32" height="32" viewBox="10 10 44 44" aria-hidden="true"><defs><mask id="nv-h5" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"></rect><circle cx="32" cy="32" r="10.5" fill="#000"></circle></mask></defs><g fill="currentColor" mask="url(#nv-h5)"><circle cx="42.61" cy="21.39" r="11"></circle><circle cx="42.61" cy="42.61" r="11"></circle><circle cx="21.39" cy="42.61" r="11"></circle><circle cx="21.39" cy="21.39" r="11"></circle></g><path d="M27 31q5 6 10 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg></a>
+<a class="nv-btn" href="#" style="background: rgba(255,255,255,0.16); color: #ffffff; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6)">Add to Chrome</a>
+</nav>
+</div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1448}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

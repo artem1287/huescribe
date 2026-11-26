@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe：Webサイトのデザインをコピーして AI プロンプトに変換",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "あらゆるサイトのカラー、フォント、レイアウト、アニメーションをコピーし、Claude Code・Cursor・Lovable・v0・Bolt に貼り付けるだけのプロンプトにします。",
+    "description": "Short description (max 132 characters)."
+  }
+}

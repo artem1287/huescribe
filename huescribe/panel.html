@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Huescribe</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <header class="top">
+    <button class="btn btn-ghost icon" id="back" aria-label="Back" hidden>
+      <svg class="i" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+    </button>
+    <img src="icons/icon32.png" alt="" width="22" height="22" class="logo" />
+    <div class="top-text">
+      <h1 id="title" tabindex="-1">Huescribe</h1>
+      <div class="top-sub">
+        <p class="host" id="host">—</p>
+        <span class="sep" aria-hidden="true">·</span>
+        <button class="btn btn-ghost app-btn" id="app" aria-haspopup="menu" aria-expanded="false" title="Which AI app the prompt is for">
+          <span>Claude Code</span>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="btn btn-ghost icon" id="more" aria-label="More" aria-haspopup="menu" aria-expanded="false" title="More">
+      <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    </button>
+  </header>
+
+  <main id="main"><!-- screens are rendered by panel.js --></main>
+
+  <div id="live" class="sr-only" aria-live="polite"></div>
+
+  <footer class="tray" id="tray" hidden>
+    <span id="tray-text"></span>
+    <button class="btn btn-primary" id="tray-btn"></button>
+  </footer>
+
+  <script src="i18n.js"></script>
+  <script src="motion.js"></script>
+  <script src="prompts.js"></script>
+  <script src="adjust.js"></script>
+  <script src="account.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

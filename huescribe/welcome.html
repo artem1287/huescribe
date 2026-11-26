@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Huescribe</title>
+  <link rel="icon" href="icons/icon32.png" />
+  <link rel="stylesheet" href="welcome.css" />
+  <!-- i18n.js loads the chosen language's catalog while this page parses (same as the panel) -->
+  <script src="i18n.js"></script>
+</head>
+<body>
+  <header class="w-top">
+    <span class="w-brand"><img src="icons/icon32.png" alt="" width="24" height="24" />Huescribe</span>
+    <ol class="w-dots" id="dots" aria-label="Steps"></ol>
+    <label class="w-lang"><span class="sr-only" id="lang-label">Language</span><select id="lang" aria-labelledby="lang-label"></select></label>
+  </header>
+
+  <main class="w-main">
+    <div class="w-say">
+      <h1 id="say" tabindex="-1"></h1>
+      <p id="sub"></p>
+      <div class="w-actions" id="actions"></div>
+    </div>
+
+    <!-- The practice: a made-up website on the left, a working copy of the Huescribe panel on the right -->
+    <section class="w-stage" id="stage" aria-label="Practice">
+      <div class="w-browser">
+        <div class="w-bar"><span class="w-traffic" aria-hidden="true"><i></i><i></i><i></i></span><span class="w-url">fieldnote.app/pricing</span></div>
+        <div class="w-site" id="site"></div>
+      </div>
+      <aside class="w-panel" id="panel" aria-live="polite"></aside>
+      <div class="w-ghost" id="ghost" aria-hidden="true"><span class="w-ring"></span><svg viewBox="0 0 24 24"><path d="M4 2l15 8.5-6.5 1.6L9.6 19z"/></svg></div>
+    </section>
+
+    <!-- Step 4: the AI app (paste into it) -->
+    <section class="w-ai" id="ai" hidden aria-label="Your AI app"></section>
+
+    <!-- Step 5: pin it, then use it anywhere -->
+    <section class="w-pin" id="pin" hidden aria-label="Pin Huescribe"></section>
+  </main>
+
+  <script src="welcome.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Huescribe
+
+> Huescribe is a Chrome extension for vibe coding. Click the parts of any website you like (a section, a button, a hover effect or an animation) and it writes them up as one design prompt for your AI coding app: Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0 or Bolt. It runs in the browser with no account, no API key and no server.
+
+Huescribe solves a common vibe-coding problem: AI apps build generic-looking sites when all they get is words like "modern" or "clean". Huescribe gives them a precise design reference instead, describing layout, spacing, fonts and type sizes, colors and contrast, and motion (hover effects, animations, timing and easing) of the parts you pick. The prompt asks the AI app to keep your own words, pictures and brand and to change only the parts you chose.
+
+How it works:
+
+1. Open the Huescribe side panel and click anything on a website you like. Arrow keys grow the pick to a whole section; dragging selects any area.
+2. Choose what to take from each part: colors, fonts, layout or motion. Add parts from several sites to one list.
+3. Copy the prompt and paste it into your AI app. Keep it as a DESIGN.md, AGENTS.md or Cursor rule if you want your coding agent to follow it every time.
+
+## Pages
+
+- [Homepage](index.html): what Huescribe does and how it works
+- [Full text for AI assistants](llms-full.txt): the homepage as plain markdown
+- [Privacy policy](privacy.html): Huescribe sends nothing to a server; what it reads stays in the browser
+- [Terms of use](terms.html)
+
+## Key facts
+
+- Type: Chrome extension (Manifest V3), opens as a side panel
+- Works with: any AI app that takes a text prompt; wording tuned for Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0 and Bolt
+- Reads: layout and spacing, fonts and sizes, colors and contrast, hover effects, animations and scroll effects
+- Privacy: no account, no analytics, no Huescribe server; it switches off when the panel closes
+- Not: a site cloner. It describes design and never copies other sites' text, photos, logos or code

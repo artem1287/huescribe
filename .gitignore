@@ -1,0 +1,16 @@
+# Build output: rebuild with homepage/export/build_site.py
+site/
+homepage/out/
+*.zip
+*.crx
+
+# Keys and local config
+*.pem
+.env
+.env.*
+
+# Caches and dependencies
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store

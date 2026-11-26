@@ -1,0 +1,3122 @@
+// Huescribe analyzer — injected into the inspected page (isolated world).
+// Extracts a site's design system (type, color, motion, layout, shape, components)
+// as compact, site-agnostic data: elements are described by their role ("button",
+// "card"…), never by the site's class names. Can be scoped to a screen region.
+
+(() => {
+  if (globalThis.__Huescribe?.version === 14) return;
+
+  const MAX_ELEMENTS = 4000;
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'META', 'LINK', 'HEAD', 'TITLE', 'BR', 'WBR', 'IFRAME', 'OBJECT']);
+
+  // ---------- helpers ----------
+
+  const round = (n, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+  const trunc = (s, n) => (s && s.length > n ? s.slice(0, n) + '…' : s || '');
+  const px = (v) => parseFloat(v) || 0;
+
+  function tally(map, key, weight = 1, tag) {
+    if (key == null || key === '') return;
+    const cur = map.get(key);
+    if (cur) { cur.count += weight; if (tag) cur.tags.add(tag); }
+    else map.set(key, { value: key, count: weight, tags: new Set(tag ? [tag] : []) });
+  }
+
+  function top(map, n, minCount = 0) {
+    return [...map.values()]
+      .filter((e) => e.count >= minCount)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, n)
+      .map((e) => ({ value: e.value, count: Math.round(e.count), kinds: [...e.tags].slice(0, 3) }));
+  }
+
+  function parseColor(str) {
+    const m = str && str.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/);
+    if (!m) return null;
+    const a = m[4] == null ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+    return { r: +m[1], g: +m[2], b: +m[3], a };
+  }
+
+  /** Computed color → `#rrggbb`, `rgba(...)` when translucent, or the raw string for oklch()/color(). Null if invisible. */
+  function normColor(str) {
+    if (!str || str === 'transparent') return null;
+    const c = parseColor(str);
+    if (!c) return /^(color|oklch|oklab|lab|lch)\(/.test(str) ? str : null;
+    if (c.a === 0) return null;
+    if (c.a < 1) return `rgba(${c.r},${c.g},${c.b},${round(c.a, 2)})`;
+    return '#' + [c.r, c.g, c.b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+  }
+
+  /** Replace rgb()/rgba() inside compound values (shadows, borders, gradients) with compact forms. */
+  function hexify(v) {
+    return (v || '').replace(/rgba?\([^)]+\)/g, (m) => normColor(m) || 'transparent');
+  }
+
+  /** Minify a declaration block / value for compact output. */
+  function mini(css) {
+    return hexify(css).replace(/\s+/g, ' ').replace(/\s*([:;{},])\s*/g, '$1').replace(/;}/g, '}').replace(/;$/, '').replace(/\b0\.(\d)/g, '.$1');
+  }
+
+  function cleanFamily(f) {
+    const name = (f || '').trim().replace(/^["']|["']$/g, '');
+    const m = name.match(/^__(.+?)_(?:Fallback_)?[0-9a-f]{5,8}$/i);
+    return m ? m[1].replace(/_/g, ' ') : name;
+  }
+  const primaryFamily = (stack) => cleanFamily((stack || '').split(',')[0]);
+
+  function isVisible(el, cs) {
+    if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  function ownText(el) {
+    let t = '';
+    for (const n of el.childNodes) if (n.nodeType === 3) t += n.textContent;
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  function safeMatches(el, sel) { try { return el.matches(sel); } catch { return false; } }
+  function safeQueryAll(sel) { try { return [...document.querySelectorAll(sel)]; } catch { return []; } }
+
+  /** Background color actually visible behind an element (walks up past transparent parents). */
+  function effectiveBg(el) {
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const c = normColor(getComputedStyle(n).backgroundColor);
+      if (c && !c.startsWith('rgba')) return c;
+    }
+    return '#ffffff';
+  }
+
+  // ---------- element roles ----------
+
+  /** Classify an element by its UI role, independent of the site's class names. */
+  function kindOf(el, cs = getComputedStyle(el)) {
+    const t = el.tagName;
+    if (/^H[1-6]$/.test(t)) return 'heading';
+    if (t === 'INPUT') return /^(submit|button|reset)$/.test(el.type) ? 'button' : 'input';
+    if (t === 'TEXTAREA' || t === 'SELECT') return 'input';
+    if (t === 'BUTTON' || el.getAttribute('role') === 'button') return 'button';
+    if (t === 'IMG' || t === 'PICTURE' || t === 'VIDEO' || t === 'CANVAS' || t === 'svg' || isVideoFrame(el)) return 'image';
+    if (t === 'HEADER' || el.getAttribute('role') === 'banner') return 'header';
+    if (t === 'FOOTER' || el.getAttribute('role') === 'contentinfo') return 'footer';
+    if (t === 'NAV') return 'nav';
+    const r = el.getBoundingClientRect();
+    const filled = !!normColor(cs.backgroundColor) || cs.backgroundImage.includes('gradient');
+    const bordered = px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none';
+    if (t === 'A') {
+      if ((filled || bordered) && px(cs.paddingLeft) >= 8 && r.height <= 72) return 'button';
+      return el.closest('nav, header') ? 'nav link' : 'link';
+    }
+    if ((filled || bordered) && px(cs.borderRadius) > 0 && r.height < 36 && r.width < 220 && el.textContent.trim()) return 'badge';
+    const surface = cs.boxShadow !== 'none' || bordered || (filled && normColor(cs.backgroundColor) !== effectiveBg(el.parentElement || el));
+    if (surface && px(cs.borderRadius) > 0 && r.width >= 140 && r.width <= innerWidth * 0.9 && r.height >= 70) return 'card';
+    if (t === 'SECTION' || (r.width >= innerWidth * 0.9 && r.height >= 200)) return 'section';
+    if (/^(P|SPAN|LI|LABEL|SMALL|STRONG|EM|BLOCKQUOTE|FIGCAPTION|TD|TH)$/.test(t)) return 'text';
+    return 'container';
+  }
+
+  // ---------- scope (whole page or a region) ----------
+
+  let scope = null; // { left, top, right, bottom } in viewport px, or null for whole page
+
+  function inScope(el) {
+    if (!scope) return true;
+    const r = el.getBoundingClientRect();
+    const w = Math.min(r.right, scope.right) - Math.max(r.left, scope.left);
+    const h = Math.min(r.bottom, scope.bottom) - Math.max(r.top, scope.top);
+    if (w <= 0 || h <= 0) return false;
+    return (w * h) / Math.max(1, r.width * r.height) >= 0.5;
+  }
+
+  const qsa = (sel) => safeQueryAll(sel).filter((el) => !el.closest('#__huescribe-root') && inScope(el));
+
+  function collectElements() {
+    const out = [];
+    const all = document.body ? document.body.getElementsByTagName('*') : [];
+    for (let i = 0; i < all.length && out.length < MAX_ELEMENTS; i++) {
+      const el = all[i];
+      if (SKIP_TAGS.has(el.tagName) || el.id === '__huescribe-root') continue;
+      const cs = getComputedStyle(el);
+      if (!isVisible(el, cs) || !inScope(el)) continue;
+      out.push({ el, cs, rect: el.getBoundingClientRect(), kind: kindOf(el, cs) });
+    }
+    return out;
+  }
+
+  // ---------- stylesheets (incl. cross-origin via the service worker) ----------
+
+  let sheetCache = null;
+
+  async function fetchCssText(url) {
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'huescribe:fetchCss', url });
+      return res?.ok ? res.text : null;
+    } catch (e) {
+      console.warn('[Huescribe] could not reach background for', url, e);
+      return null;
+    }
+  }
+
+  async function loadRules() {
+    if (sheetCache) return sheetCache;
+    const res = { styleRules: [], keyframes: [], fontFaces: [], mediaTexts: [], imports: [], unreadable: [] };
+    const pending = [];
+    const seen = new Set();
+
+    function walk(rules, baseHref, media) {
+      for (const rule of rules) {
+        try {
+          if (rule instanceof CSSStyleRule) {
+            res.styleRules.push({ rule, selector: rule.selectorText, media });
+            if (rule.cssRules?.length) walk(rule.cssRules, baseHref, media);
+          } else if (rule instanceof CSSKeyframesRule) res.keyframes.push(rule);
+          else if (rule instanceof CSSFontFaceRule) res.fontFaces.push({ rule, baseHref });
+          else if (rule instanceof CSSMediaRule) {
+            const m = rule.conditionText || rule.media.mediaText;
+            res.mediaTexts.push(m);
+            walk(rule.cssRules, baseHref, m);
+          } else if (rule instanceof CSSImportRule) {
+            res.imports.push(rule.href);
+            try { if (rule.styleSheet) walk(rule.styleSheet.cssRules, rule.styleSheet.href || baseHref, media); }
+            catch { pending.push(new URL(rule.href, baseHref).href); }
+          } else if (rule.cssRules) walk(rule.cssRules, baseHref, media);
+        } catch (e) {
+          console.debug('[Huescribe] skipped rule', e);
+        }
+      }
+    }
+
+    for (const sheet of document.styleSheets) {
+      if (sheet.href) { if (seen.has(sheet.href)) continue; seen.add(sheet.href); }
+      try { walk(sheet.cssRules, sheet.href || location.href, null); }
+      catch { if (sheet.href) pending.push(sheet.href); }
+    }
+    for (const sheet of document.adoptedStyleSheets || []) {
+      try { walk(sheet.cssRules, location.href, null); } catch { /* ignore */ }
+    }
+    const texts = await Promise.all(pending.slice(0, 25).map(async (url) => ({ url, text: await fetchCssText(url) })));
+    for (const { url, text } of texts) {
+      if (!text) { res.unreadable.push(url); continue; }
+      try {
+        const s = new CSSStyleSheet();
+        s.replaceSync(text.replace(/@import[^;]+;/g, ''));
+        walk(s.cssRules, url, null);
+      } catch (e) {
+        console.warn('[Huescribe] failed to parse', url, e);
+        res.unreadable.push(url);
+      }
+    }
+    sheetCache = res;
+    setTimeout(() => { sheetCache = null; }, 30000);
+    return res;
+  }
+
+  /** Strip pseudo-classes/elements so `el.matches()` can test a state rule's base selector. */
+  function baseSelector(sel) {
+    return sel.replace(/::?(hover|focus|focus-visible|focus-within|active|visited|before|after|placeholder|marker|selection)(\([^)]*\))?/g, '')
+      .replace(/:(not|is|where|has)\(\s*\)/g, '') // ":not(:hover)" leaves ":not()" behind
+      .trim() || '*';
+  }
+
+  /** Split a selector list at top-level commas only (":is(.a, .b):hover" stays one selector). */
+  function splitSelectors(sel) {
+    const out = [];
+    let depth = 0, start = 0;
+    for (let i = 0; i < sel.length; i++) {
+      const c = sel[i];
+      if (c === '(' || c === '[') depth++;
+      else if (c === ')' || c === ']') depth = Math.max(0, depth - 1);
+      else if (c === ',' && depth === 0) { out.push(sel.slice(start, i)); start = i + 1; }
+    }
+    out.push(sel.slice(start));
+    return out;
+  }
+  function safeClosest(el, sel) { try { return el?.closest(sel) || null; } catch { return null; } }
+  function safeQueryIn(el, sel) { try { return [...el.querySelectorAll(sel)]; } catch { return []; } }
+
+  const STATE_RE = /:(hover|focus-visible|focus|active)\b/;
+
+  /**
+   * State rules (hover/focus/active) that involve `el`: [{ state, css, scope, other }].
+   * scope 'self':   `.btn:hover { … }` — el itself changes.
+   * scope 'inside': `.card:hover .arrow { … }` with el = the card — hovering el changes a part inside.
+   * scope 'outer':  same rule with el = the arrow — el changes when its card is hovered.
+   */
+  function statesFor(el, sheets, limit = 4, allScopes = false) {
+    const out = [];
+    const seen = new Set();
+    for (const { rule, selector } of sheets.styleRules) {
+      if (!selector || !STATE_RE.test(selector)) continue;
+      for (const part of splitSelectors(selector).filter((p) => STATE_RE.test(p))) {
+        const p = part.trim();
+        const state = p.match(STATE_RE)[1];
+        const css = mini(rule.style.cssText);
+        if (!css) continue;
+        // Split at the compound that carries the state: "<host>:hover <rest>".
+        const m = p.match(/^(.*?:(?:hover|focus-visible|focus|active)(?:\([^)]*\))?[^\s>+~]*)\s*([>+~]?\s*.*)$/);
+        const host = baseSelector(m ? m[1] : p);
+        const rest = m ? m[2].replace(/^[>+~]\s*/, '').trim() : '';
+        let entry = null;
+        if (!rest) {
+          if (safeMatches(el, host)) entry = { state, css, scope: 'self' };
+        } else {
+          const restSel = baseSelector(rest);
+          if (safeMatches(el, host)) {
+            const inner = safeQueryIn(el, restSel).find((n) => n !== el);
+            if (inner) entry = { state, css, scope: 'inside', other: inner };
+          } else if (safeMatches(el, restSel)) {
+            const anc = safeClosest(el.parentElement, host);
+            if (anc) entry = { state, css, scope: 'outer', other: anc };
+          }
+        }
+        if (!entry || (!allScopes && entry.scope !== 'self')) continue;
+        const key = state + css + entry.scope;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        entry.css = trunc(css, 220);
+        out.push(entry);
+        if (out.length >= limit) return out;
+      }
+    }
+    return out;
+  }
+
+  // ---------- TYPOGRAPHY ----------
+
+  const GENERIC_FONTS = /^(system-ui|-apple-system|BlinkMacSystemFont|Segoe UI|Roboto|Helvetica( Neue)?|Arial|sans-serif|serif|monospace|Georgia|Times( New Roman)?|ui-sans-serif|ui-serif|ui-monospace|Menlo|Monaco|Consolas|Courier( New)?)$/i;
+
+  function textSpec(cs) {
+    const size = px(cs.fontSize);
+    const lh = cs.lineHeight === 'normal' || !size ? 'normal' : round(px(cs.lineHeight) / size, 2);
+    const ls = cs.letterSpacing === 'normal' || !size ? 0 : round(px(cs.letterSpacing) / size, 3);
+    const stack = cs.fontFamily.toLowerCase();
+    return {
+      family: primaryFamily(cs.fontFamily),
+      class: /monospace|mono\b|code/.test(stack) ? 'mono' : /(^|,)\s*"?serif"?\s*(,|$)|georgia|times|garamond|playfair|fraunces|merriweather|lora|serif display/.test(stack) && !/sans-serif/.test(stack.split(',').slice(-1)[0]) ? 'serif' : 'sans',
+      size: round(size, 1),
+      weight: cs.fontWeight,
+      lineHeight: lh,
+      tracking: ls,
+      transform: cs.textTransform !== 'none' ? cs.textTransform : undefined,
+      italic: cs.fontStyle === 'italic' || undefined,
+    };
+  }
+
+  async function analyzeFonts(els, sheets) {
+    const roles = {};
+    // Headings: first visible of each level in scope.
+    for (const h of ['h1', 'h2', 'h3', 'h4']) {
+      const el = qsa(h).find((e) => isVisible(e, getComputedStyle(e)) && e.textContent.trim());
+      if (el) roles[h] = textSpec(getComputedStyle(el));
+    }
+    // Body = dominant style of running text; small = dominant text style smaller than body.
+    const bodyStyles = new Map();
+    for (const { el, cs, kind } of els) {
+      if (!['text', 'container', 'section', 'card'].includes(kind)) continue;
+      const t = ownText(el);
+      if (t.length < 2) continue;
+      const s = textSpec(cs);
+      tally(bodyStyles, JSON.stringify(s), t.length);
+    }
+    const ranked = top(bodyStyles, 6).map((e) => JSON.parse(e.value));
+    if (ranked[0]) roles.body = ranked[0];
+    const small = ranked.find((s) => roles.body && s.size < roles.body.size - 0.5);
+    if (small) roles.small = small;
+    for (const [role, kind] of [['button', 'button'], ['nav link', 'nav link'], ['input', 'input']]) {
+      const hit = els.find((e) => e.kind === kind && (e.el.innerText || e.el.placeholder || e.el.value || '').trim());
+      if (hit) roles[role] = textSpec(hit.cs);
+    }
+    const code = qsa('code, pre').find((e) => isVisible(e, getComputedStyle(e)));
+    if (code) roles.code = textSpec(getComputedStyle(code));
+
+    // Families with their source.
+    const famUse = new Map();
+    for (const [role, s] of Object.entries(roles)) tally(famUse, s.family, 1, role);
+    const googleLinks = [...document.querySelectorAll('link[href*="fonts.googleapis.com"], link[href*="fonts.bunny.net"]')].map((l) => decodeURIComponent(l.href)).concat(sheets.imports.filter((u) => /fonts\.(googleapis|bunny)/.test(u)).map(decodeURIComponent));
+    const adobe = !!document.querySelector('link[href*="typekit.net"], script[src*="typekit.net"]') || sheets.imports.some((u) => /typekit/.test(u));
+    const nextFont = /__\w+_[0-9a-f]{5,8}/.test(getComputedStyle(document.body || document.documentElement).fontFamily);
+    const faces = new Set(sheets.fontFaces.map(({ rule }) => cleanFamily(rule.style.getPropertyValue('font-family')).toLowerCase()));
+
+    const families = [...famUse.values()].map((f) => {
+      const name = f.value;
+      const re = new RegExp('family=' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '[+ ]'), 'i');
+      let source = 'unknown';
+      if (GENERIC_FONTS.test(name)) source = tk('system font');
+      else if (googleLinks.some((u) => re.test(u))) source = tk('Google Fonts');
+      else if (adobe && !faces.has(name.toLowerCase())) source = tk('Adobe Fonts (licensed)');
+      else if (nextFont) source = tk('next/font (often a Google font)');
+      else if (faces.has(name.toLowerCase())) source = tk('self-hosted, check license');
+      return { family: name, source, roles: [...f.tags] };
+    });
+
+    return { families, roles };
+  }
+
+  // ---------- COLORS ----------
+
+  async function analyzeColors(els, sheets) {
+    const text = new Map(); const bg = new Map(); const border = new Map(); const accents = new Map(); const gradients = new Map(); const onAccent = new Map();
+    const vpArea = innerWidth * innerHeight;
+    for (const { el, cs, rect, kind } of els) {
+      const t = ownText(el);
+      if (t) tally(text, normColor(cs.color), Math.min(t.length, 300), kind);
+      const b = normColor(cs.backgroundColor);
+      if (b) tally(bg, b, Math.min(rect.width * rect.height, vpArea) / 1000 + 1, kind);
+      if (cs.backgroundImage.includes('gradient(')) tally(gradients, mini(cs.backgroundImage), 1, kind);
+      if (px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && normColor(cs.borderTopColor)) tally(border, normColor(cs.borderTopColor), 1, kind);
+      if (kind === 'button' && b) { tally(accents, b, 3, 'button bg'); tally(onAccent, `${b}|${normColor(cs.color)}`, 1); }
+      if (kind === 'link') tally(accents, normColor(cs.color), 1, 'link');
+      if (kind === 'badge' && b) tally(accents, b, 1, 'badge');
+    }
+    const scopeRoot = scope ? (els[0]?.el || document.body) : document.body;
+    // Many sites leave <body> transparent and paint each section: then the page's real base is
+    // the background that covers the most height, not the browser's white.
+    const base = scope ? effectiveBg(scopeRoot) : (normColor(getComputedStyle(document.body).backgroundColor) || normColor(getComputedStyle(document.documentElement).backgroundColor) || dominantBandBg() || '#ffffff');
+
+    // Semantic design tokens declared on :root-like selectors (page-wide only).
+    let tokens = null;
+    if (!scope) {
+      const rootRe = /^(:root|html|body|:host)\b|^\[data-theme|^\.(light|dark)\b|^html[.[]/;
+      const semantic = /(^--(color-)?)(background|foreground|bg|fg|text|primary|secondary|accent|muted|border|ring|card|surface|brand|destructive|danger|success|warning|popover|input)(\b|-|$)/i;
+      const light = new Map(); const dark = new Map();
+      for (const { rule, selector, media } of sheets.styleRules) {
+        if (!selector || !rootRe.test(selector.trim())) continue;
+        const isDark = /dark/i.test(selector) || /prefers-color-scheme:\s*dark/.test(media || '');
+        const st = rule.style;
+        for (let i = 0; i < st.length; i++) {
+          const k = st[i];
+          if (!k.startsWith('--') || !semantic.test(k)) continue;
+          let v = st.getPropertyValue(k).trim();
+          if (/^\d+(\.\d+)?\s+\d+(\.\d+)?%\s+\d+(\.\d+)?%$/.test(v)) v = `hsl(${v})`; // shadcn-style raw HSL
+          if (!/#|rgb|hsl|oklch|oklab|lab\(|lch\(|color\(|var\(/.test(v)) continue;
+          (isDark ? dark : light).set(k, trunc(v, 60));
+        }
+      }
+      if (light.size) tokens = { light: [...light].slice(0, 16), dark: [...dark].slice(0, 16) };
+    }
+    return {
+      base,
+      text: top(text, 4),
+      backgrounds: top(bg, 6),
+      borders: top(border, 3),
+      accents: top(accents, 4),
+      onAccent: Object.fromEntries(top(onAccent, 6).reverse().map((e) => e.value.split('|'))),
+      gradients: top(gradients, 3),
+      tokens,
+      darkMode: !scope && (sheets.mediaTexts.some((m) => /prefers-color-scheme:\s*dark/.test(m)) || !!tokens?.dark?.length),
+    };
+  }
+
+  // ---------- MOTION ----------
+
+  const toMs = (s) => Math.round(parseFloat(s) * (s.trim().endsWith('ms') ? 1 : 1000));
+
+  async function analyzeAnimations(els, sheets) {
+    const easings = new Map(); const durations = new Map();
+    const used = new Map(); // keyframe name → {kind, timing}
+    for (const { cs, kind } of els) {
+      if (cs.transitionDuration && cs.transitionDuration.split(',').some((d) => px(d) > 0)) {
+        cs.transitionTimingFunction.split(/,(?![^(]*\))/).forEach((e) => tally(easings, e.trim(), 1));
+        cs.transitionDuration.split(',').forEach((d) => { const ms = toMs(d); if (ms > 0) tally(durations, ms, 1); });
+      }
+      if (cs.animationName && cs.animationName !== 'none') {
+        const names = cs.animationName.split(',').map((n) => n.trim());
+        names.forEach((n, i) => {
+          if (used.has(n)) return;
+          const pick = (v) => v.split(/,(?![^(]*\))/)[i]?.trim() || v.split(/,(?![^(]*\))/)[0].trim();
+          const dur = pick(cs.animationDuration);
+          const timing = [toMs(dur) + 'ms', pick(cs.animationTimingFunction), pick(cs.animationIterationCount) !== '1' ? pick(cs.animationIterationCount) : '', pick(cs.animationDelay) !== '0s' ? 'delay ' + toMs(pick(cs.animationDelay)) + 'ms' : ''].filter(Boolean).join(' ');
+          used.set(n, { kind, timing });
+        });
+      }
+    }
+    const keyframes = [];
+    for (const kf of sheets.keyframes) {
+      const u = used.get(kf.name);
+      if (!u || keyframes.some((k) => k.name === kf.name)) continue;
+      const body = [...kf.cssRules].map((r) => `${r.keyText}{${mini(r.style.cssText)}}`).join(' ');
+      keyframes.push({ name: kf.name, on: u.kind, timing: u.timing, frames: trunc(body, 240) });
+      if (keyframes.length >= 5) break;
+    }
+
+    // Interaction states, grouped by element role.
+    const interactions = [];
+    const seen = new Set();
+    const interactive = els.filter((e) => ['button', 'link', 'nav link', 'card', 'input', 'badge', 'image'].includes(e.kind));
+    for (const { el, kind } of interactive) {
+      for (const s of statesFor(el, sheets, 3)) {
+        const key = kind + s.state + s.css;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        interactions.push({ kind, state: s.state, css: s.css });
+      }
+      if (interactions.length >= 8) break;
+    }
+
+    const htmlCs = getComputedStyle(document.documentElement);
+    const libs = detectMotionLibraries();
+    return {
+      easings: top(easings, 3).map((e) => e.value),
+      durations: top(durations, 4).map((e) => e.value).sort((a, b) => a - b),
+      keyframes,
+      interactions,
+      smoothScroll: htmlCs.scrollBehavior === 'smooth',
+      sticky: [...new Set(els.filter((e) => e.cs.position === 'sticky' || (e.cs.position === 'fixed' && e.rect.top < 5)).map((e) => e.kind))].slice(0, 3),
+      scrollSnap: els.some(({ cs }) => cs.scrollSnapType && cs.scrollSnapType !== 'none'),
+      scrollDriven: sheets.styleRules.some(({ rule }) => /animation-timeline|view-timeline/.test(rule.style.cssText)),
+      reducedMotion: sheets.mediaTexts.some((m) => /prefers-reduced-motion/.test(m)),
+      jsReveal: els.filter(({ el }) => /opacity:\s*0/.test(el.getAttribute('style') || '')).length >= 3,
+      libraries: libs,
+    };
+  }
+
+  function detectMotionLibraries() {
+    const found = new Set();
+    const scripts = [...document.scripts].map((s) => s.src).join(' ');
+    const checks = [
+      [/gsap|greensock/i, 'GSAP'], [/ScrollTrigger/i, 'GSAP ScrollTrigger'], [/framer-motion|motion\.dev/i, 'Framer Motion'],
+      [/animejs|anime(\.min)?\.js/i, 'anime.js'], [/\/aos[@.]/i, 'AOS'], [/lottie/i, 'Lottie'], [/lenis/i, 'Lenis smooth scroll'],
+      [/locomotive/i, 'Locomotive Scroll'], [/swiper/i, 'Swiper'], [/three(\.module)?(\.min)?\.js|three@/i, 'three.js'], [/split-?type|splitting/i, 'split-text animation'],
+    ];
+    for (const [re, name] of checks) if (re.test(scripts)) found.add(name);
+    const dom = [['[data-aos]', 'AOS'], ['lottie-player, dotlottie-player', 'Lottie'], ['html.lenis', 'Lenis smooth scroll'], ['[data-scroll-container]', 'Locomotive Scroll'],
+      ['.swiper', 'Swiper'], ['[data-framer-component-type]', 'Framer'], ['spline-viewer', 'Spline 3D'], ['[data-w-id]', 'Webflow interactions']];
+    for (const [sel, name] of dom) if (safeQueryAll(sel).length) found.add(name);
+    return [...found];
+  }
+
+  // ---------- LAYOUT ----------
+
+  async function analyzeLayout(els, sheets) {
+    const vw = innerWidth;
+    const containers = new Map(); const sectionPad = new Map(); const grids = new Map();
+    for (const { el, cs, rect, kind } of els) {
+      const ml = px(cs.marginLeft);
+      if (cs.maxWidth !== 'none' && rect.width > 320 && ml > 0 && Math.abs(ml - px(cs.marginRight)) < 2) {
+        tally(containers, `${cs.maxWidth}|${cs.paddingLeft}`, 1);
+      }
+      if (rect.width >= vw * 0.8 && rect.height >= 200 && px(cs.paddingTop) >= 32) tally(sectionPad, cs.paddingTop === cs.paddingBottom ? cs.paddingTop : `${cs.paddingTop} / ${cs.paddingBottom}`, 1);
+      if (cs.display.includes('grid') && el.children.length >= 2) {
+        const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length;
+        const childKinds = new Map();
+        [...el.children].forEach((c) => tally(childKinds, kindOf(c), 1));
+        const child = top(childKinds, 1)[0]?.value || 'item';
+        tally(grids, `${cols}|${cs.gap}|${child}`, 1);
+      }
+      if (cs.display.includes('flex') && kind === 'card' && el.parentElement) { /* card rows via flex counted below */ }
+    }
+
+    const bps = new Set();
+    for (const m of sheets.mediaTexts) {
+      for (const x of m.matchAll(/(?:min|max)-width:\s*([\d.]+)(px|em|rem)/g)) bps.add(Math.round(x[2] === 'px' ? +x[1] : +x[1] * 16));
+      for (const x of m.matchAll(/width\s*[<>]=?\s*([\d.]+)(px|em|rem)/g)) bps.add(Math.round(x[2] === 'px' ? +x[1] : +x[1] * 16));
+    }
+
+    let header = null;
+    const h = scope ? null : document.querySelector('header, [role="banner"]') || document.querySelector('nav');
+    if (h) {
+      const cs = getComputedStyle(h);
+      const bgc = normColor(cs.backgroundColor);
+      header = {
+        position: cs.position,
+        height: Math.round(h.getBoundingClientRect().height),
+        blur: cs.backdropFilter !== 'none' ? cs.backdropFilter : undefined,
+        translucent: !!bgc && bgc.startsWith('rgba'),
+        border: px(cs.borderBottomWidth) > 0 && normColor(cs.borderBottomColor) ? `${cs.borderBottomWidth} ${normColor(cs.borderBottomColor)}` : undefined,
+      };
+    }
+
+    return {
+      container: top(containers, 1).map((c) => { const [max, pad] = c.value.split('|'); return { max, pad }; })[0],
+      sectionPadding: top(sectionPad, 2).map((e) => e.value),
+      grids: top(grids, 4).map((g) => { const [cols, gap, child] = g.value.split('|'); return { cols: +cols, gap, child }; }),
+      breakpoints: [...bps].filter((b) => b >= 320 && b <= 1920).sort((a, b) => a - b).slice(0, 6),
+      header,
+      pattern: scope ? [] : pagePattern(),
+    };
+  }
+
+  /** Top-to-bottom sequence of page blocks described generically ("hero", "3-col card grid"…). */
+  function pagePattern() {
+    const blocks = [];
+    const main = document.querySelector('main') || document.body;
+    let candidates = [...document.querySelectorAll('body > header, body > footer, main > *, body > section, body > div > section, body > div > main > *, body > div > header, body > div > footer')];
+    candidates = candidates.filter((el, i, arr) => arr.indexOf(el) === i && !el.closest('#__huescribe-root'));
+    if (candidates.length < 2) candidates = [...main.children];
+    candidates.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    for (const el of candidates) {
+      const cs = getComputedStyle(el);
+      if (!isVisible(el, cs)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.height < 60) continue;
+      const bgc = effectiveBg(el);
+      const dark = luminance(bgc) < 0.25;
+      const kind = kindOf(el, cs);
+      let label; let shownLabel; // label: English, for comparisons; shownLabel: the words written out
+      if (kind === 'header' || el.tagName === 'NAV') { label = 'header'; shownLabel = t('header'); }
+      else if (kind === 'footer') { label = 'footer'; shownLabel = t('footer'); }
+      else if (el.querySelector('h1')) { label = 'hero'; shownLabel = t('hero'); }
+      else {
+        const grid = [...el.querySelectorAll('*')].find((n) => { const c = getComputedStyle(n); return (c.display.includes('grid') || c.display.includes('flex')) && n.children.length >= 3; });
+        if (grid) {
+          const gc = getComputedStyle(grid);
+          const cols = gc.display.includes('grid') ? gc.gridTemplateColumns.split(' ').filter(Boolean).length : grid.children.length;
+          label = 'grid';
+          shownLabel = kindOf(grid.children[0]) === 'card' ? t('{n}-col cards', { n: cols }) : t('{n}-col items', { n: cols });
+        } else if (el.querySelector('img, picture, video') && el.querySelector('h2, h3, p')) { label = 'media + text'; shownLabel = t('media + text'); }
+        else { label = 'content section'; shownLabel = t('content section'); }
+      }
+      if (el.style.backgroundImage || cs.backgroundImage.includes('gradient')) shownLabel = t('{label} (gradient bg)', { label: shownLabel });
+      else if (dark && label !== 'footer') shownLabel = t('{label} (dark band)', { label: shownLabel });
+      else if (dark) shownLabel = t('dark footer');
+      blocks.push(shownLabel);
+      if (blocks.length >= 10) break;
+    }
+    return blocks;
+  }
+
+  function luminance(hex) {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return 1;
+    const n = parseInt(m[1], 16);
+    return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+  }
+
+  // ---------- SHAPE ----------
+
+  async function analyzeShape(els) {
+    const radiusByKind = new Map(); const shadows = new Map(); const borders = new Map(); const spacing = new Map(); const effects = new Map();
+    for (const { el, cs, rect, kind } of els) {
+      const r = px(cs.borderTopLeftRadius);
+      if (r > 0 && !['text', 'container', 'section'].includes(kind) || (r > 0 && kind === 'container' && rect.width > 60)) {
+        const v = r >= rect.height / 2 - 1 && rect.width > rect.height ? 'pill' : r >= rect.width / 2 - 1 && Math.abs(rect.width - rect.height) < 2 ? 'circle' : cs.borderRadius;
+        if (!radiusByKind.has(kind)) radiusByKind.set(kind, new Map());
+        tally(radiusByKind.get(kind), v, 1);
+      }
+      if (cs.boxShadow !== 'none') tally(shadows, mini(cs.boxShadow), 1, kind);
+      if (px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && normColor(cs.borderTopColor)) tally(borders, `${cs.borderTopWidth} ${cs.borderTopStyle} ${normColor(cs.borderTopColor)}`, 1, kind);
+      for (const v of [cs.paddingTop, cs.paddingLeft, cs.rowGap, cs.columnGap]) {
+        const n = Math.round(px(v));
+        if (n > 0 && n <= 160) tally(spacing, n, 1);
+      }
+      if (cs.backdropFilter && cs.backdropFilter !== 'none') tally(effects, `backdrop-filter: ${cs.backdropFilter}`, 1, kind);
+    }
+    const radii = [...radiusByKind].map(([kind, m]) => ({ kind, value: top(m, 1)[0].value, count: [...m.values()].reduce((a, b) => a + b.count, 0) }))
+      .filter((r) => r.kind !== 'container' || r.count >= 3).sort((a, b) => b.count - a.count).slice(0, 6);
+    return {
+      radii,
+      shadows: top(shadows, 3),
+      borders: top(borders, 2),
+      spacing: top(spacing, 12, 2).map((e) => e.value).sort((a, b) => a - b),
+      effects: top(effects, 2),
+    };
+  }
+
+  // ---------- COMPONENTS ----------
+
+  /** Compact, generic style recipe for a component: only the properties that define its look. */
+  function recipe(el, cs = getComputedStyle(el), parentCs = el.parentElement ? getComputedStyle(el.parentElement) : null) {
+    const o = {};
+    const bgc = normColor(cs.backgroundColor);
+    if (cs.backgroundImage.includes('gradient')) o.background = mini(cs.backgroundImage);
+    else if (bgc) o.background = bgc;
+    const inherited = (p) => parentCs && cs[p] === parentCs[p];
+    if (!inherited('color')) o.color = normColor(cs.color) || 'transparent'; // see-through text (gradient or picture inside the letters)
+    const size = px(cs.fontSize);
+    const lh = cs.lineHeight === 'normal' || !size ? 'normal' : round(px(cs.lineHeight) / size, 2);
+    // A 0px wrapper (a trick to remove gaps between inline pieces) has no font worth copying.
+    if (size > 0 && !(inherited('fontSize') && inherited('fontWeight') && inherited('fontFamily'))) {
+      o.font = `${cs.fontWeight} ${round(size, 1)}px/${lh} ${primaryFamily(cs.fontFamily)}`;
+    }
+    if (size > 0 && cs.letterSpacing !== 'normal' && px(cs.letterSpacing) !== 0) o['letter-spacing'] = round(px(cs.letterSpacing) / size, 3) + 'em';
+    if (cs.textTransform !== 'none') o['text-transform'] = cs.textTransform;
+    const pad = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map((v) => Math.round(px(v)));
+    if (pad.some(Boolean)) o.padding = (pad[0] === pad[2] && pad[1] === pad[3] ? (pad[0] === pad[1] ? [pad[0]] : [pad[0], pad[1]]) : pad).map((n) => n + 'px').join(' ');
+    if (px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && normColor(cs.borderTopColor)) o.border = `${cs.borderTopWidth} ${cs.borderTopStyle} ${normColor(cs.borderTopColor)}`;
+    else if (px(cs.borderBottomWidth) > 0 && cs.borderBottomStyle !== 'none' && normColor(cs.borderBottomColor)) o['border-bottom'] = `${cs.borderBottomWidth} ${cs.borderBottomStyle} ${normColor(cs.borderBottomColor)}`;
+    const r = cs.borderRadius;
+    if (r !== '0px') { const rect = el.getBoundingClientRect(); o['border-radius'] = px(r) >= rect.height / 2 - 1 && rect.width > rect.height ? '999px' : r; }
+    if (cs.boxShadow !== 'none') o['box-shadow'] = mini(cs.boxShadow);
+    if (/flex|grid/.test(cs.display)) {
+      o.display = cs.display;
+      if (cs.display.includes('grid')) {
+        // Equal tracks read as repeat(n, 1fr); uneven ones keep their real widths.
+        const tracks = cs.gridTemplateColumns.split(' ').filter(Boolean);
+        const w = tracks.map(px);
+        o['grid-template-columns'] = w.every((v) => Math.abs(v - w[0]) <= 1.5) ? `repeat(${tracks.length}, 1fr)` : w.map((v) => `${Math.round(v)}px`).join(' ');
+      }
+      else if (cs.flexDirection !== 'row') o['flex-direction'] = cs.flexDirection;
+      if (cs.alignItems !== 'normal' && cs.alignItems !== 'stretch') o['align-items'] = cs.alignItems;
+      if (cs.justifyContent !== 'normal' && cs.justifyContent !== 'flex-start') o['justify-content'] = cs.justifyContent;
+      if (cs.gap !== 'normal' && cs.gap !== '0px') o.gap = cs.gap;
+    }
+    const kind = kindOf(el, cs);
+    if (['button', 'input', 'badge'].includes(kind)) o.height = Math.round(el.getBoundingClientRect().height) + 'px';
+    if (cs.transitionDuration.split(',').some((d) => px(d) > 0)) o.transition = mini(cs.transition).replace(/,/g, ', ');
+    if (cs.backdropFilter && cs.backdropFilter !== 'none') o['backdrop-filter'] = cs.backdropFilter;
+    if (cs.opacity !== '1') o.opacity = cs.opacity;
+    return o;
+  }
+
+  async function analyzeComponents(els, sheets) {
+    const out = [];
+    const want = [['button', 2], ['input', 1], ['card', 1], ['badge', 1], ['link', 1], ['nav link', 1]];
+    for (const [kind, n] of want) {
+      const seen = new Set();
+      let count = 0;
+      for (const e of els) {
+        if (e.kind !== kind) continue;
+        const rec = recipe(e.el, e.cs);
+        const sig = JSON.stringify([rec.background, rec.color, rec.border, rec['border-radius']]);
+        if (seen.has(sig)) continue;
+        // Unstyled browser-default controls (e.g. Arial + outset border) say nothing about the design.
+        if (/outset|inset/.test(rec.border || '') || (kind === 'button' && /\b(Arial|Times New Roman)$/.test(rec.font || ''))) continue;
+        seen.add(sig);
+        let label = kind;
+        if (kind === 'button') label = count === 0 ? 'primary button' : 'secondary button';
+        out.push({ kind: label, style: rec, states: statesFor(e.el, sheets, 3) });
+        if (++count >= n) break;
+      }
+    }
+    return out;
+  }
+
+  // ---------- STACK (context only) ----------
+
+  function analyzeStack(sheets) {
+    const found = [];
+    const has = (sel) => safeQueryAll(sel).length > 0;
+    if (has('#__next') || [...document.scripts].some((s) => /\/_next\//.test(s.src))) found.push('Next.js');
+    if (has('#__nuxt')) found.push('Nuxt');
+    if (has('html[data-wf-page]')) found.push('Webflow');
+    if (has('[data-framer-component-type]')) found.push('Framer');
+    const twVars = sheets.styleRules.slice(0, 3000).some(({ rule }) => /--tw-/.test(rule.style.cssText));
+    if (twVars) found.push('Tailwind');
+    if (sheets.styleRules.some(({ selector }) => /data-radix|\[data-state=/.test(selector || ''))) found.push('Radix/shadcn');
+    if (has('svg.lucide, svg[class*="lucide"]')) found.push('Lucide icons');
+    return found;
+  }
+
+  // ---------- single element ----------
+
+  function genericName(kind) { return kind.replace(/\s+/g, '-'); }
+
+  async function analyzeElement(el) {
+    const sheets = await loadRules();
+    const rootCs = getComputedStyle(el);
+    const rootKind = kindOf(el, rootCs);
+    const rootName = genericName(rootKind === 'container' || rootKind === 'section' ? 'block' : rootKind);
+    const keyframeNames = new Set();
+    const rules = [];
+    const seen = new Set();
+    const usedSel = new Set();
+    const stateRules = new Map(); // "sel:state" → merged declarations
+
+    function nameFor(n) {
+      if (n === el) return `.${rootName}`;
+      const parts = [];
+      for (let p = n; p && p !== el; p = p.parentElement) {
+        const k = kindOf(p);
+        parts.unshift(['heading', 'text', 'container', 'image'].includes(k) ? p.tagName.toLowerCase() : `.${genericName(k)}`);
+      }
+      return `.${rootName} ${parts.slice(-2).join(' ')}`;
+    }
+
+    const nodes = [el, ...[...el.querySelectorAll('*')].filter((n) => !SKIP_TAGS.has(n.tagName) && isVisible(n, getComputedStyle(n)))].slice(0, 40);
+    for (const n of nodes) {
+      const cs = getComputedStyle(n);
+      if (cs.animationName !== 'none') cs.animationName.split(',').forEach((k) => keyframeNames.add(k.trim()));
+      const rec = recipe(n, cs, n === el ? null : getComputedStyle(n.parentElement));
+      if (n === el) { delete rec.height; const r = n.getBoundingClientRect(); if (r.width < 600) rec['max-width'] = Math.round(r.width) + 'px'; }
+      let sel = nameFor(n);
+      // Two different parts with the same generic name would override each other: name the later one by position.
+      if (usedSel.has(sel) && n.parentElement) sel = `${sel}:nth-child(${[...n.parentElement.children].indexOf(n) + 1})`;
+      usedSel.add(sel);
+      const body = Object.entries(rec).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}:${v}`).join(';'); // never print a missing value
+      if (body && !seen.has(sel + body)) {
+        seen.add(sel + body);
+        rules.push(`${sel}{${body}}`);
+      }
+      // One rule per state: several site rules for the same hover merge, later values win;
+      // values that point at the site's own variables can't be used elsewhere and are dropped.
+      for (const s of statesFor(n, sheets, 3)) {
+        const key = `${sel}:${s.state}`;
+        if (!stateRules.has(key)) { stateRules.set(key, new Map()); rules.push(key); }
+        for (const d of s.css.split(';')) {
+          const i = d.indexOf(':');
+          if (i < 0 || /var\(--/.test(d)) continue;
+          stateRules.get(key).set(d.slice(0, i).trim(), d.slice(i + 1).trim());
+        }
+      }
+      for (const pseudo of ['::before', '::after']) {
+        const ps = getComputedStyle(n, pseudo);
+        const painted = normColor(ps.backgroundColor) || ps.backgroundImage !== 'none' || px(ps.borderTopWidth) || px(ps.borderBottomWidth) || ps.boxShadow !== 'none';
+        // An empty, unpainted layer is only a click area: nothing to copy.
+        if (ps.content && ps.content !== 'none' && ps.content !== 'normal' && (painted || !/^["']{2}$/.test(ps.content))) {
+          const p = { content: trunc(ps.content, 30), background: normColor(ps.backgroundColor) || (ps.backgroundImage !== 'none' ? mini(ps.backgroundImage) : undefined), position: ps.position !== 'static' ? ps.position : undefined, inset: ps.position === 'absolute' ? ps.inset : undefined, transform: ps.transform !== 'none' ? ps.transform : undefined };
+          rules.push(`${sel}${pseudo}{${Object.entries(p).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(';')}}`);
+        }
+      }
+      if (rules.length >= 24) break;
+    }
+    for (let i = 0; i < rules.length; i++) {
+      const st = stateRules.get(rules[i]);
+      if (!st) continue;
+      rules[i] = st.size ? `${rules[i]}{${[...st].map(([k, v]) => `${k}:${v}`).join(';')}}` : '';
+    }
+    for (let i = rules.length - 1; i >= 0; i--) if (!rules[i]) rules.splice(i, 1);
+    const keyframes = sheets.keyframes.filter((k) => keyframeNames.has(k.name)).slice(0, 3)
+      .map((k) => `@keyframes ${k.name}{${[...k.cssRules].map((r) => `${r.keyText}{${mini(r.style.cssText)}}`).join('')}}`);
+    const r = el.getBoundingClientRect();
+    return {
+      kind: rootKind,
+      name: rootName,
+      structure: skeleton(el, rootName),
+      rules,
+      keyframes,
+      fonts: [...new Set(nodes.map((n) => primaryFamily(getComputedStyle(n).fontFamily)))].slice(0, 3),
+      rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+    };
+  }
+
+  /** Generic markup outline: tags + role names, no site classes, no content. */
+  function skeleton(root, rootName, depth = 0, budget = { n: 0 }) {
+    if (budget.n++ > 30) return '';
+    const pad = '  '.repeat(depth);
+    const tag = root.tagName.toLowerCase();
+    const k = kindOf(root);
+    const cls = depth === 0 ? ` class="${rootName}"` : ['card', 'badge', 'button'].includes(k) && tag !== 'button' ? ` class="${genericName(k)}"` : '';
+    if (tag === 'svg' || tag === 'img') return `${pad}<${tag}${cls}/>`;
+    const kids = [...root.children].filter((c) => !SKIP_TAGS.has(c.tagName) && isVisible(c, getComputedStyle(c)));
+    const text = ownText(root) ? '…' : '';
+    if (!kids.length || depth >= 3) return `${pad}<${tag}${cls}>${text || (kids.length ? '…' : '')}</${tag}>`;
+    // Collapse repeated identical siblings.
+    const lines = [];
+    let prev = null; let rep = 0;
+    for (const kid of kids.slice(0, 8)) {
+      const s = skeleton(kid, rootName, depth + 1, budget);
+      if (s === prev) { rep++; continue; }
+      if (rep) lines.push(`${pad}  <!-- ×${rep + 1} -->`);
+      rep = 0; prev = s; lines.push(s);
+    }
+    if (rep) lines.push(`${pad}  <!-- ×${rep + 1} -->`);
+    if (kids.length > 8) lines.push(`${pad}  <!-- +${kids.length - 8} more -->`);
+    return `${pad}<${tag}${cls}>\n${lines.filter(Boolean).join('\n')}\n${pad}</${tag}>`;
+  }
+
+  /** Layout of the smallest element that contains a region. */
+  function regionContainer(region) {
+    const cx = (region.left + region.right) / 2;
+    const cy = (region.top + region.bottom) / 2;
+    let el = document.elementsFromPoint(cx, cy).find((n) => n.id !== '__huescribe-root' && !n.closest('#__huescribe-root'));
+    while (el && el.parentElement) {
+      const r = el.getBoundingClientRect();
+      if (r.left <= region.left + 8 && r.top <= region.top + 8 && r.right >= region.right - 8 && r.bottom >= region.bottom - 8) break;
+      el = el.parentElement;
+    }
+    if (!el || el === document.documentElement) el = document.body;
+    // The visual layout (grid/flex of several items) is often a few levels down: find it breadth-first.
+    let layoutEl = null;
+    const queue = [[el, 0]];
+    while (queue.length && !layoutEl) {
+      const [n, d] = queue.shift();
+      const cs = getComputedStyle(n);
+      const kids = [...n.children].filter((c) => isVisible(c, getComputedStyle(c)));
+      if (/flex|grid/.test(cs.display) && kids.length >= 2 && n.getBoundingClientRect().width >= (region.right - region.left) * 0.5) layoutEl = n;
+      else if (d < 4) kids.forEach((k) => queue.push([k, d + 1]));
+    }
+    const outer = recipe(el);
+    return {
+      structure: skeleton(el, 'section'),
+      style: outer,
+      layout: layoutEl && layoutEl !== el ? recipe(layoutEl) : null,
+      layoutEl: layoutEl && layoutEl !== el ? layoutEl : null,
+    };
+  }
+
+  // ---------- INGREDIENTS (tickable items for supplemental prompts) ----------
+  // Each item: { id, group, type, label, context, code, preview }.
+  // `label` and `code` are site-agnostic and go into the prompt; `context` only helps the
+  // user recognize the item in the panel (it may contain the source page's text).
+
+  function hslOf(hex) {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+    const max = Math.max(r, g, b); const min = Math.min(r, g, b); const l = (max + min) / 2;
+    if (max === min) return { h: 0, s: 0, l };
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    const h = (max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+    return { h, s, l };
+  }
+
+  /** Plain-language color name, e.g. "pale orange", "dark grey". */
+  function colorName(c) {
+    let hex = c;
+    let alpha = '';
+    const rgba = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(c || '');
+    if (rgba) { hex = '#' + [rgba[1], rgba[2], rgba[3]].map((v) => (+v).toString(16).padStart(2, '0')).join(''); alpha = +rgba[4] < 0.05 ? 'transparent ' : 'translucent '; }
+    if (c === 'transparent') return t('transparent');
+    const x = hslOf(hex);
+    if (!x) return t('color');
+    if (alpha === 'transparent ') return t('transparent');
+    const see = (name) => (alpha ? t('translucent {color}', { color: name }) : name);
+    if (x.s < 0.12) return see(x.l > 0.93 ? t('white') : x.l > 0.75 ? t('light grey') : x.l > 0.4 ? t('grey') : x.l > 0.1 ? t('dark grey') : t('black'));
+    const h = x.h;
+    const hue = h < 15 || h >= 345 ? t('red') : h < 40 ? t('orange') : h < 65 ? t('yellow') : h < 90 ? t('lime') : h < 165 ? t('green') : h < 190 ? t('teal') : h < 205 ? t('cyan') : h < 250 ? t('blue') : h < 270 ? t('indigo') : h < 295 ? t('violet') : h < 320 ? t('purple') : t('pink');
+    const toned = x.l > 0.85 ? t('pale {hue}', { hue }) : x.l > 0.68 ? t('light {hue}', { hue }) : x.l < 0.28 ? t('dark {hue}', { hue }) : x.s > 0.75 && x.l > 0.4 && x.l < 0.6 ? t('vivid {hue}', { hue }) : hue;
+    return see(toned);
+  }
+
+  function splitTop(value) {
+    const out = []; let depth = 0; let cur = '';
+    for (const ch of value) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  }
+
+  /** "Diagonal gradient (135°): pale orange → light pink" from a computed background-image. */
+  // ---------- plain-language words for items ----------
+  // Each item gets: title (short headline), desc (one plain sentence), tech (numbers for "Details").
+  // label (what goes in the prompt) = title + desc + tech.
+
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+  function gradientWords(value, isText) {
+    const layers = splitTop(value).filter((l) => l.includes('gradient('));
+    const g = layers[0] || '';
+    const type = /radial/.test(g) ? 'radial' : /conic/.test(g) ? 'conic' : 'linear';
+    const inner = g.slice(g.indexOf('(') + 1, g.lastIndexOf(')'));
+    const args = splitTop(inner);
+    let dir = ''; let angle = null;
+    if (type === 'linear') {
+      const deg = /^(-?[\d.]+)deg$/.exec(args[0] || '');
+      angle = deg ? ((Math.round(+deg[1]) % 360) + 360) % 360 : /^to /.test(args[0] || '') ? null : 180;
+      dir = angle == null ? t('toward {side}', { side: args[0].replace(/^to /, '') }) : angle % 180 === 0 ? t('top to bottom') : angle % 180 === 90 ? t('left to right') : t('diagonal');
+    } else dir = type === 'radial' ? t('from the center') : t('in a circle');
+    const colors = (inner.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b|oklch\([^)]*\)|\btransparent\b/gi) || []).map((c) => colorName(normColor(c) || c));
+    const uniq = colors.filter((c, i) => c !== colors[i - 1]).slice(0, 4);
+    return {
+      title: isText ? t('Gradient text') : type === 'radial' ? t('Glow') : t('Gradient'),
+      desc: t('{colors}, {direction}.', { colors: cap(uniq.length ? uniq.reduce((a, b) => t('{a} to {b}', { a, b })) : ''), direction: dir }),
+      tech: [type, angle != null ? `${angle}°` : null, layers.length > 1 ? tn(layers.length, '{n} layer', '{n} layers') : null].filter(Boolean).join(', '),
+    };
+  }
+
+  /** "lifts up slightly, grows a little and gets a different shadow" from a state rule. */
+  function stateWords(css) {
+    const w = [];
+    const ty = /translateY\((-?[\d.]+)px\)/.exec(css) || /translate\(-?[\d.]+px,\s*(-?[\d.]+)px\)/.exec(css) || /translate:\s*-?[\d.]+px\s+(-?[\d.]+)px/.exec(css);
+    if (ty) w.push(+ty[1] < 0 ? t('lifts up') : t('moves down'));
+    if (/translateX\(/.test(css)) w.push(t('moves sideways'));
+    const sc = /scale\(([\d.]+)\)/.exec(css);
+    if (sc) w.push(+sc[1] > 1 ? t('grows') : t('shrinks'));
+    if (/rotate\(/.test(css)) w.push(t('tilts'));
+    if (/box-shadow:[^;]*0px 0px 0px \d/.test(css) || /outline:(?!none)/.test(css)) w.push(t('shows a ring'));
+    else if (/box-shadow/.test(css)) w.push(t('shadow changes'));
+    if (/background(-color)?:/.test(css)) w.push(t('color changes'));
+    if (/(^|;)color:/.test(css)) w.push(t('text color changes'));
+    if (/border(-color)?:/.test(css)) w.push(t('border changes'));
+    if (/opacity:/.test(css)) w.push(t('fades a bit'));
+    if (/filter:/.test(css)) w.push(t('looks different'));
+    if (/text-decoration/.test(css)) w.push(t('gets underlined'));
+    return w.length ? w.join(', ') : t('changes');
+  }
+
+  function shadowWords(value, isText) {
+    const alphas = [...value.matchAll(/rgba\([^)]*,([\d.]+)\)/g)].map((m) => +m[1]);
+    const alpha = alphas.length ? Math.max(...alphas) : /#[0-9a-f]{6}/i.test(value) ? 1 : 0.2;
+    const blur = Math.max(0, ...[...value.matchAll(/(-?[\d.]+)px/g)].map((m) => Math.abs(+m[1])));
+    // Greys, black and white (low saturation) are a plain shadow, not a colored glow.
+    const tint = (() => { const c = /rgba?\((\d+),(\d+),(\d+)/.exec(value); if (!c) return ''; const hex = '#' + [c[1], c[2], c[3]].map((v) => (+v).toString(16).padStart(2, '0')).join(''); return hslOf(hex).s < 0.12 ? '' : colorName(hex); })();
+    const strength = alpha <= 0.15 ? t('Soft') : alpha <= 0.35 ? t('Medium') : t('Strong');
+    let what = tint ? t('{color} glow', { color: tint }) : isText ? t('text shadow') : t('shadow');
+    if (/inset/.test(value)) what = t('{what} inside', { what });
+    return blur >= 30 ? t('{strength}, wide {what}.', { strength, what }) : t('{strength} {what}.', { strength, what });
+  }
+
+  function filterWords(f) {
+    const w = [];
+    if (/grayscale/.test(f)) w.push(t('black and white'));
+    if (/sepia/.test(f)) w.push(t('old-photo look'));
+    if (/blur/.test(f)) w.push(t('blurry'));
+    if (/brightness/.test(f)) w.push(t('brightness changed'));
+    if (/saturate/.test(f)) w.push(t('stronger colors'));
+    if (/contrast/.test(f)) w.push(t('more contrast'));
+    if (/hue-rotate/.test(f)) w.push(t('colors shifted'));
+    return w.length ? `${cap(w.join(', '))}.` : t('Changed look.');
+  }
+
+  function fontWords(s) {
+    const size = s.size >= 48 ? t('very big') : s.size >= 30 ? t('big') : s.size >= 20 ? t('medium') : s.size >= 15 ? t('normal size') : t('small');
+    const weight = +s.weight >= 700 ? t('bold') : +s.weight >= 600 ? t('semi-bold') : +s.weight <= 300 ? t('thin') : '';
+    const extra = [s.tracking < -0.005 ? t('tight') : s.tracking > 0.02 ? t('spaced out') : '', s.transform === 'uppercase' ? t('all caps') : '', s.italic ? t('italic') : ''];
+    const nums = { size: s.size, weight: s.weight, lh: s.lineHeight, ls: s.tracking };
+    return {
+      desc: `${[s.family, size, weight, ...extra].filter(Boolean).join(', ')}.`,
+      tech: s.tracking ? t('{size}px, weight {weight}, line height {lh}, letter spacing {ls}em', nums) : t('{size}px, weight {weight}, line height {lh}', nums),
+    };
+  }
+
+  // English nouns (also compared, and sent as meta.noun); translated with t(noun) where they are written out.
+  const ROLE_NOUN = { button: tk('button'), card: tk('card'), link: tk('link'), 'nav link': tk('menu link'), input: tk('input box'), badge: tk('badge'), image: tk('image'), heading: tk('heading'), section: tk('section'), header: tk('header'), footer: tk('footer'), nav: tk('menu'), text: tk('text'), container: tk('element') };
+
+  /** English plural ("cards", from the noun + "s") written out in the reader's language. */
+  const pluralWords = (pl) => t({ buttons: tk('buttons'), cards: tk('cards'), links: tk('links'), 'menu links': tk('menu links'), 'input boxs': tk('input boxs'), badges: tk('badges'), images: tk('images'), headings: tk('headings'), sections: tk('sections'), headers: tk('headers'), footers: tk('footers'), menus: tk('menus'), texts: tk('texts'), elements: tk('elements'), items: tk('items'), blocks: tk('blocks'), pieces: tk('pieces') }[pl] || pl);
+
+  /** Cards stay short: no extra context line for page items. */
+  function contextOf() { return ''; }
+
+  let itemSeq = 0;
+  /** What kind of thing an item comes from (heading level, button, card…), so the prompt can say
+   *  how it fits the person's own site ("every h2 heading", "all my cards"). */
+  function metaOf(el) {
+    if (!el || el.nodeType !== 1) return null;
+    const kind = kindOf(el);
+    return { kind, tag: el.tagName.toLowerCase(), noun: ROLE_NOUN[kind] || 'element' };
+  }
+  /** Build an item; `label` (used in the prompt) combines the plain words with the numbers. */
+  // Some titles stay English (marked with tk, compared elsewhere): t() translates them; translated ones pass through.
+  const mk = (o) => ({ id: `i${Date.now().toString(36)}${(itemSeq++).toString(36)}`, label: o.tech ? t('{title}: {desc} ({tech})', { title: t(o.title), desc: o.desc.replace(/\.$/, ''), tech: o.tech }) : t('{title}: {desc}', { title: t(o.title), desc: o.desc.replace(/\.$/, '') }), ...o });
+
+  /** Remember the page element an item came from (for previews and highlighting). */
+  function reg(el) {
+    if (!el) return undefined;
+    globalThis.__plTargets ??= new Map();
+    const id = `t${Date.now().toString(36)}${(itemSeq++).toString(36)}`;
+    globalThis.__plTargets.set(id, new WeakRef(el));
+    return id;
+  }
+
+  function rectOf(el) {
+    if (!el) return undefined;
+    const r = el.getBoundingClientRect();
+    return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) };
+  }
+
+  /** Where a font family comes from on this page (a fact for the prompt), or ''. */
+  function familySource(name, sheets) {
+    if (GENERIC_FONTS.test(name)) return tk('a system font');
+    const links = [...document.querySelectorAll('link[href*="fonts.googleapis.com"], link[href*="fonts.bunny.net"]')].map((l) => decodeURIComponent(l.href)).concat(sheets.imports.map(decodeURIComponent));
+    const re = new RegExp('family=' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '[+ ]'), 'i');
+    if (links.some((u) => re.test(u))) return tk('from Google Fonts (free)');
+    const faces = new Set(sheets.fontFaces.map(({ rule }) => cleanFamily(rule.style.getPropertyValue('font-family')).toLowerCase()));
+    if (document.querySelector('link[href*="typekit.net"], script[src*="typekit.net"]') && !faces.has(name.toLowerCase())) return tk('from Adobe Fonts (licensed)');
+    if (faces.has(name.toLowerCase())) return tk('self-hosted by the site');
+    return '';
+  }
+
+  function fontCode(s, cs) {
+    return [`font-family: ${cs ? cs.fontFamily : `"${s.family}"`};`, `font-size: ${s.size}px;`, `font-weight: ${s.weight};`, `line-height: ${s.lineHeight};`,
+      s.tracking ? `letter-spacing: ${s.tracking}em;` : '', s.transform ? `text-transform: ${s.transform};` : '', s.italic ? 'font-style: italic;' : '',
+      cs ? `color: ${normColor(cs.color) || 'transparent'};` : ''].filter(Boolean).join('\n');
+  }
+
+  function keyframesCode(rule) {
+    return `@keyframes ${rule.name} {\n${[...rule.cssRules].map((r) => `  ${r.keyText} { ${mini(r.style.cssText).replace(/;/g, '; ')} }`).join('\n')}\n}`;
+  }
+
+  /** Keyframes rule → frames in the shape HuescribeMotion expects. */
+  function framesOfRule(rule) {
+    const frames = [];
+    for (const r of rule.cssRules) {
+      const props = {};
+      for (let i = 0; i < r.style.length; i++) props[r.style[i]] = r.style.getPropertyValue(r.style[i]);
+      for (const key of r.keyText.split(',')) {
+        const k = key.trim();
+        frames.push({ offset: k === 'from' ? 0 : k === 'to' ? 1 : parseFloat(k) / 100, props });
+      }
+    }
+    return frames.sort((a, b) => a.offset - b.offset);
+  }
+
+  /** Detect self-moving media inside a pick. Returns { title, desc, when, tech, code } or null. */
+  function mediaMotion(el) {
+    const tag = el.tagName;
+    const r = el.getBoundingClientRect();
+    const size = `${Math.round(r.width)}×${Math.round(r.height)}`;
+    if (tag === 'CANVAS' && r.width >= 40 && r.height >= 40) {
+      const lib = detectMotionLibraries().find((l) => /three|Spline|Rive|Lottie/.test(l));
+      const cs = getComputedStyle(el);
+      const place = r.width >= document.documentElement.clientWidth * 0.9 ? t('full width') : `${size} px`;
+      const behind = cs.position === 'absolute' || cs.position === 'fixed' || px(cs.zIndex) < 0 ? t(', sits behind the content') : '';
+      return { title: t('Moving drawing'), desc: lib ? t("Drawn by code ({lib}), so it can't be copied as-is. Claude can make something similar.", { lib }) : t("Drawn by code, so it can't be copied as-is. Claude can make something similar."), when: tk('Loops'), tech: `canvas ${size}`,
+        code: `${t('A <canvas> {place}{behind}, redrawn by JavaScript every frame (keeps moving){lib}.', { place, behind, lib: lib ? t('; made with {lib}', { lib }) : '' })}\n${t('It has no CSS to copy: the pasted frames show how it changes over about 2 seconds.')}` };
+    }
+    if (tag === 'VIDEO' && (el.autoplay || el.loop || !el.paused)) {
+      return { title: t('Background video'), desc: t('A video that plays by itself. Use your own video file.'), when: el.loop ? tk('Loops') : tk('On load'), tech: `video ${size}${el.muted ? ', muted' : ''}${el.loop ? ', loop' : ''}`,
+        code: `${t('A video {size} px that plays by itself{muted}{loop}, no controls, fit: {fit}.', { size, muted: el.muted ? t(', muted') : '', loop: el.loop ? t(', on a loop') : '', fit: getComputedStyle(el).objectFit })}\n${t('The pasted frames show what it looks like; use my own video file.')}` };
+    }
+    if (/^(LOTTIE-PLAYER|DOTLOTTIE-PLAYER|DOTLOTTIE-WC)$/.test(tag) || el.hasAttribute?.('data-lottie')) {
+      return { title: t('Lottie animation'), desc: t('A ready-made animation file. You can reuse it only if you have the rights to it.'), when: el.hasAttribute('loop') ? tk('Loops') : tk('On load'), tech: `lottie ${size}`, code: `<${tag.toLowerCase()} src="(animation file)"${el.hasAttribute('loop') ? ' loop' : ''} autoplay></${tag.toLowerCase()}>` };
+    }
+    if (tag === 'svg' && el.querySelector('animate, animateTransform, animateMotion')) {
+      const a = el.querySelector('animate, animateTransform, animateMotion');
+      return { title: t('Animated icon'), desc: t('An SVG picture with built-in movement.'), when: a.getAttribute('repeatCount') === 'indefinite' ? tk('Loops') : tk('On load'), tech: `SVG <${a.tagName}> ${a.getAttribute('attributeName') || ''} ${a.getAttribute('dur') || ''}`.trim(), code: el.outerHTML.length < 3000 ? el.outerHTML : t('<!-- SVG with <{tag}> (too large to include) -->', { tag: a.tagName }) };
+    }
+    if (tag === 'IMG' && /\.gif(\?|$)/i.test(el.currentSrc || el.src || '')) {
+      return { title: t('Moving picture (GIF)'), desc: t('An animated image. Use your own GIF or video.'), when: tk('Loops'), tech: `gif ${size}`, code: t('<!-- animated GIF -->') };
+    }
+    return null;
+  }
+
+  // The four choices for every pick: Colors, Fonts, Layout (layout only) and Motion
+  // (the copy-everything items: the whole button / area / look).
+  // Group names are identifiers (compared in panel.js): English here, translated where shown.
+  const GROUPS = { bg: tk('Colors'), text: tk('Fonts'), fx: tk('Colors'), shape: tk('Layout'), hover: tk('Motion'), anim: tk('Motion'), layout: tk('Layout') };
+
+  /** Items found in a set of elements (a picked element + descendants, or a region). */
+  function collectItems(nodes, sheets, root) {
+    const items = [];
+    const seen = new Set();
+    const push = (node, key, o) => { if (seen.has(key)) return; seen.add(key); items.push(mk({ ...o, target: reg(node), rect: rectOf(node), meta: metaOf(node) })); };
+    const fonts = [];
+
+    for (const el of nodes.slice(0, 120)) {
+      const cs = getComputedStyle(el);
+      const kind = kindOf(el, cs);
+      const noun = ROLE_NOUN[kind] || 'element';
+      const ctx = contextOf(el);
+      const bgi = cs.backgroundImage;
+      if (bgi.includes('gradient(')) {
+        const isText = /text/.test(cs.webkitBackgroundClip || cs.backgroundClip || '');
+        const code = isText
+          ? `background-image: ${hexify(bgi)};\n-webkit-background-clip: text;\nbackground-clip: text;\ncolor: transparent;`
+          : `background-image: ${hexify(bgi)};` + (cs.backgroundSize !== 'auto' ? `\nbackground-size: ${cs.backgroundSize};` : '') + (cs.backgroundAttachment === 'fixed' ? '\nbackground-attachment: fixed;' : '');
+        push(el, 'g' + bgi, { group: GROUPS.bg, type: isText ? 'text-gradient' : 'gradient', ...gradientWords(bgi, isText), context: '', code, preview: { kind: 'gradient', value: mini(bgi) } });
+      }
+      if (cs.boxShadow !== 'none') push(el, 's' + cs.boxShadow, { group: GROUPS.fx, type: 'shadow', title: t('Shadow'), desc: shadowWords(mini(cs.boxShadow), false), tech: mini(cs.boxShadow), context: ctx, code: `box-shadow: ${mini(cs.boxShadow)};`, preview: { kind: 'shadow', value: mini(cs.boxShadow) } });
+      if (cs.textShadow !== 'none') push(el, 'ts' + cs.textShadow, { group: GROUPS.fx, type: 'text-shadow', title: t('Text shadow'), desc: shadowWords(mini(cs.textShadow), true), tech: mini(cs.textShadow), context: ctx, code: `text-shadow: ${mini(cs.textShadow)};`, preview: { kind: 'text-shadow', value: mini(cs.textShadow) } });
+      if (cs.backdropFilter && cs.backdropFilter !== 'none') push(el, 'bf' + cs.backdropFilter, { group: GROUPS.fx, type: 'glass', title: t('Frosted glass'), desc: t("Blurs what's behind it."), tech: cs.backdropFilter, context: ctx, code: `backdrop-filter: ${cs.backdropFilter};\n-webkit-backdrop-filter: ${cs.backdropFilter};\nbackground: ${normColor(cs.backgroundColor) || 'rgba(255,255,255,.6)'};`, preview: { kind: 'none' } });
+      if (cs.filter && cs.filter !== 'none' && kind === 'image') push(el, 'f' + cs.filter, { group: GROUPS.fx, type: 'filter', title: t('Photo filter'), desc: filterWords(cs.filter), tech: cs.filter, context: ctx, code: `filter: ${cs.filter};`, preview: { kind: 'none' } });
+      // clip-path: inset(50%) or a 1px box is the "screen-reader only" trick, not a shape.
+      const srOnly = /inset\(\s*50%|rect\(\s*0(px)?[ ,]+0(px)?[ ,]+0(px)?[ ,]+0/.test(`${cs.clipPath} ${cs.clip}`) || (el.getBoundingClientRect().width <= 2 && el.getBoundingClientRect().height <= 2);
+      if (cs.clipPath && cs.clipPath !== 'none' && !srOnly) push(el, 'cp' + cs.clipPath, { group: GROUPS.shape, type: 'shape', title: t('Cut-out shape'), desc: t('Cut into a special shape.'), tech: 'clip-path', context: ctx, code: `clip-path: ${cs.clipPath};`, preview: { kind: 'none' } });
+      // Hover / focus effects
+      for (const st of statesFor(el, sheets, 6, true)) {
+        // Already listed from its host's side ("Card hover: the heading inside") when the host is in the pick.
+        if (st.scope === 'outer' && root && (st.other === root || root.contains(st.other))) continue;
+        // The element that actually changes (itself, a part inside it, or itself inside a hovered parent).
+        const changer = st.scope === 'inside' ? st.other : el;
+        const ccs = getComputedStyle(changer);
+        const hasTrans = ccs.transitionDuration.split(',').some((d) => px(d) > 0);
+        const trans = hasTrans ? `transition: ${mini(ccs.transition).replace(/,/g, ', ')};\n` : '';
+        const ms = hasTrans ? Math.max(...ccs.transitionDuration.split(',').map((d) => parseFloat(d) * (d.trim().endsWith('ms') ? 1 : 1000))) : 0;
+        const state = st.state === 'hover' ? 'hover' : 'click';
+        const verb = state === 'hover' ? 'hover' : 'click';
+        const partNoun = t(ROLE_NOUN[kindOf(changer)] || tk('part'));
+        const hostNoun = t(st.scope === 'outer' ? ROLE_NOUN[kindOf(st.other)] || tk('parent') : noun);
+        const nounW = t(noun);
+        const v = { noun: cap(nounW), part: partNoun, host: hostNoun };
+        const hover = verb === 'hover';
+        const title = st.scope === 'self' ? (hover ? t('{noun} hover', v) : t('{noun} click', v)) : st.scope === 'inside' ? (hover ? t('{noun} hover: the {part} inside', v) : t('{noun} click: the {part} inside', v)) : (hover ? t('{noun} on {host} hover', v) : t('{noun} on {host} click', v));
+        const what = stateWords(st.css).replace(/^./, (c) => c.toLowerCase());
+        const dv = { noun: nounW, part: partNoun, host: hostNoun, what };
+        const desc = st.scope === 'self' ? `${cap(stateWords(st.css))}.` : st.scope === 'inside' ? (hover ? t('Hovering the {noun} affects the {part} inside it: {what}.', dv) : t('Clicking the {noun} affects the {part} inside it: {what}.', dv)) : (hover ? t('Hovering the {host} around it affects it: {what}.', dv) : t('Clicking the {host} around it affects it: {what}.', dv));
+        const wv = { noun: nounW, part: partNoun, host: hostNoun, state: st.state };
+        const where = st.scope === 'self' ? `/* :${st.state} */` : st.scope === 'inside' ? t('/* when the {noun} is :{state}, the {part} inside it gets: */', wv) : t('/* when the {host} around it is :{state}, this {noun} gets: */', wv);
+        push(el, 'h' + kind + st.state + st.css + st.scope, { group: GROUPS.hover, when: state === 'hover' ? tk('On hover') : tk('On click'), type: state === 'hover' ? 'hover' : 'focus', title, desc, tech: hasTrans ? `${ms}ms` : '', context: ctx, code: `${t('/* resting */')}\n${trans}${where}\n${st.css.replace(/;/g, ';\n')};`, preview: { kind: 'none' },
+          stateCss: st.css, stateOn: reg(changer), restColors: restColorsOf(changer, st.css), bgBehind: seenBgSolid(changer) });
+      }
+      // CSS animations currently applied (loops, entrances defined in CSS)
+      if (cs.animationName && cs.animationName !== 'none') {
+        // Each list (name, duration, count, easing) lines up by position; shorter lists repeat.
+        const nth = (v, i) => { const l = splitSelectors(v).map((x) => x.trim()); return l[i % l.length]; };
+        const names = cs.animationName.split(',').map((n) => n.trim());
+        for (const [ni, name] of names.entries()) {
+          const rule = sheets.keyframes.find((k) => k.name === name);
+          if (!rule) continue;
+          const count = nth(cs.animationIterationCount, ni);
+          const loop = count === 'infinite';
+          const dur = nth(cs.animationDuration, ni);
+          let ms = Math.round(parseFloat(dur) * (dur.endsWith('ms') ? 1 : 1000));
+          // "auto" (scroll-driven animations) has no length in time: it follows the scroll.
+          const scrollDriven = !Number.isFinite(ms) || (cs.animationTimeline && !/^(auto|none)$/.test(cs.animationTimeline));
+          if (!Number.isFinite(ms)) ms = 1000;
+          const words = globalThis.HuescribeMotion?.describe({
+            frames: framesOfRule(rule), iterations: loop ? 'infinite' : +count || 1,
+            duration: ms, scrollLinked: scrollDriven,
+            stagger: 0, count: 1, unit: 'element', easing: nth(cs.animationTimingFunction, ni), trigger: scrollDriven ? 'scrolllinked' : loop ? 'loop' : 'load', target: t('the {noun}', { noun: t(noun) }),
+          });
+          push(el, 'a' + name, { group: GROUPS.anim, when: scrollDriven ? tk('As you scroll') : loop ? tk('Loops') : tk('On load'), animName: name, type: 'animation', title: words ? words.name : t('Animation'), desc: words ? words.sentence : t('Moves.'), tech: words ? t('{numbers}; plays {when}', { numbers: words.numbers, when: words.when }) : '', context: ctx, code: `${keyframesCode(rule)}\n\n${t('/* on the element */')}\nanimation: ${mini(cs.animation).replace(/,/g, ', ')};`, preview: { kind: 'none' } });
+        }
+      }
+      // Things that move but can't be turned into CSS: canvas drawings, videos, Lottie, SVG <animate>, GIFs.
+      const media = mediaMotion(el);
+      if (media) push(el, 'm' + media.title + el.tagName, { group: GROUPS.anim, when: media.when, type: 'media', title: media.title, desc: media.desc, tech: media.tech, context: ctx, code: media.code, preview: { kind: 'none' } });
+      // Typography: distinct text styles (ranked below)
+      // Headings count their full text: split-text effects leave them with no direct text nodes.
+      const txt = /^H[1-6]$/.test(el.tagName) ? el.textContent.replace(/\s+/g, ' ').trim() : ownText(el);
+      if (txt.length >= 1) {
+        const s = textSpec(cs);
+        const uaDefault = /^(Arial|Times New Roman)$/.test(s.family) && /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+        const key = `${s.family}|${s.size}|${s.weight}`;
+        const hit = fonts.find((f) => f.key === key);
+        if (hit) hit.chars += txt.length;
+        else if (!uaDefault && fonts.length < 12) fonts.push({ key, s, cs, el, kind, chars: txt.length });
+      }
+    }
+    // Headings first (largest first), then buttons, then the most-used running text.
+    const rank = (f) => (/^H[1-6]$/.test(f.el.tagName) ? 1e6 + f.s.size : f.kind === 'button' ? 5e5 : f.chars);
+    fonts.sort((a, b) => rank(b) - rank(a));
+    fonts.splice(3);
+    for (const f of fonts) {
+      // English titles (prompts.js reads them to tell what kind of text it is): translated where shown.
+      const role = /^H[1-3]$/.test(f.el.tagName) ? tk('Heading font') : f.kind === 'button' ? tk('Button font') : f.s.size >= 30 ? tk('Headline font') : f.s.size < 14 ? tk('Small text font') : tk('Text font');
+      push(f.el, 't' + f.key, { group: GROUPS.text, type: 'font', title: role, ...fontWords(f.s), fontSource: familySource(f.s.family, sheets), context: `“${trunc(f.el.textContent.replace(/\s+/g, ' ').trim(), 30)}”`, code: fontCode(f.s, f.cs), preview: { kind: 'font', value: { family: f.cs.fontFamily, size: Math.min(f.s.size, 22), weight: f.s.weight } } });
+    }
+    if (root) {
+      const cs = getComputedStyle(root);
+      const bg = normColor(cs.backgroundColor);
+      const noun = ROLE_NOUN[kindOf(root, cs)] || 'element';
+      if (root.querySelectorAll('*').length >= 3) {
+        try {
+          const code = colorReport(root);
+          const sw = [...new Set(code.match(/#[0-9a-f]{6}\b/gi) || [])].slice(0, 6);
+          if (sw.length) items.push(mk({ target: reg(root), rect: rectOf(root), group: GROUPS.bg, type: 'palette', title: tk('Its colors'), desc: t('Background, text, buttons and lines, by role.'), tech: '', context: '', code, preview: { kind: 'palette', value: sw } }));
+        } catch (err) { console.debug('[Huescribe] colors of the pick failed', err); }
+      }
+      if (bg && !cs.backgroundImage.includes('gradient')) items.push(mk({ target: reg(root), rect: rectOf(root), group: GROUPS.bg, type: 'color', title: /^(section|container|header|footer|nav)$/.test(kindOf(root, cs)) || root.getBoundingClientRect().width >= innerWidth * 0.8 ? t('Background color') : t('{noun} fill color', { noun: cap(t(noun)) }), desc: `${cap(colorName(bg))}.`, tech: bg, context: '', code: `background-color: ${bg};`, preview: { kind: 'color', value: bg } }));
+      const rad = cs.borderRadius !== '0px'; const bord = px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && !!normColor(cs.borderTopColor); // a transparent border is only spacing
+      if (rad || bord) {
+        const rr = root.getBoundingClientRect();
+        const pill = px(cs.borderRadius) >= rr.height / 2 - 1 && rr.width > rr.height;
+        const r = px(cs.borderRadius);
+        const corner = pill ? t('Pill shape') : rad ? (r <= 6 ? t('Slightly rounded corners') : r <= 16 ? t('Rounded corners') : t('Very rounded corners')) : t('Square corners');
+        const border = bord ? (px(cs.borderTopWidth) <= 1 ? t('thin border') : t('thick border')) : ''; // its color belongs with the colors, not the format
+        items.push(mk({ target: reg(root), rect: rectOf(root), group: GROUPS.shape, type: 'shape', title: pill ? t('Pill shape') : rad ? t('Rounded corners') : t('Border'), desc: `${corner}${border ? `, ${border}` : ''}.`, tech: [rad && (pill ? '999px' : cs.borderRadius), bord && t('{width} border', { width: cs.borderTopWidth })].filter(Boolean).join(', '), context: '', code: [rad && `border-radius: ${pill ? '999px' : cs.borderRadius};`, bord && `border-width: ${cs.borderTopWidth};\nborder-style: ${cs.borderTopStyle};`].filter(Boolean).join('\n'), preview: { kind: 'shape', value: pill ? '999px' : cs.borderRadius } }));
+        if (bord) { const bc = normColor(cs.borderTopColor); items.push(mk({ target: reg(root), rect: rectOf(root), group: GROUPS.bg, type: 'color', title: t('Border color'), desc: `${cap(colorName(bc))}.`, tech: bc, context: '', code: `border-color: ${bc};`, preview: { kind: 'color', value: bc } })); }
+      }
+      // Layout: the element itself or the first grid/flex inside it with several children.
+      const lay = [root, ...root.querySelectorAll('*')].slice(0, 40).find((n) => { const c = getComputedStyle(n); return /flex|grid/.test(c.display) && n.children.length >= 2; });
+      if (lay) items.push(layoutItem(lay));
+    }
+    return items;
+  }
+
+  function layoutItem(lay) {
+    let c = getComputedStyle(lay);
+    const grid = c.display.includes('grid');
+    const cols = grid ? c.gridTemplateColumns.split(' ').filter(Boolean).length : 0;
+    const gap = c.gap !== 'normal' && c.gap !== '0px' ? c.gap.split(' ')[0] : '';
+    const desc = grid ? tn(cols, '{n} column.', '{n} columns.') : c.flexDirection.startsWith('column') ? t('Stacked.') : c.justifyContent === 'space-between' ? t('In a row, spread out.') : c.justifyContent === 'center' ? t('In a row, centered.') : t('In a row.');
+    // "normal 10px" (row gap normal) isn't usable as written: give the real values.
+    const gapCss = (() => { const [rg, cg = rg] = c.gap.split(' '); const R = rg === 'normal' ? '0px' : rg, C = cg === 'normal' ? '0px' : cg; return R === C ? R : `${R} ${C}`; })();
+    c = Object.assign(Object.create(null), { display: c.display, flexDirection: c.flexDirection, alignItems: c.alignItems, justifyContent: c.justifyContent, flexWrap: c.flexWrap, gridTemplateColumns: c.gridTemplateColumns, gap: gapCss });
+    const code = grid ? `display: grid;\ngrid-template-columns: repeat(${cols}, minmax(0, 1fr));\ngap: ${c.gap};${c.alignItems !== 'normal' ? `\nalign-items: ${c.alignItems};` : ''}`
+      : `display: flex;\nflex-direction: ${c.flexDirection};\ngap: ${c.gap};${c.alignItems !== 'normal' ? `\nalign-items: ${c.alignItems};` : ''}${c.justifyContent !== 'normal' ? `\njustify-content: ${c.justifyContent};` : ''}${c.flexWrap !== 'nowrap' ? `\nflex-wrap: ${c.flexWrap};` : ''}`;
+    return mk({ target: reg(lay), rect: rectOf(lay), group: GROUPS.layout, type: 'layout', title: t('Spacing'), desc, tech: grid ? t('grid, {n} columns, gap {gap}', { n: cols, gap: c.gap }) : `flex ${c.flexDirection}, gap ${c.gap}`, context: '', code, preview: { kind: 'none' } });
+  }
+
+  // ---------- structure outline, navigation bar, color journey (v7.3) ----------
+  // These describe what the page IS (order, arrangement, sizes, colors per section) so Claude can
+  // rebuild it exactly. Elements still waiting for a scroll reveal (opacity 0) count as present.
+
+  const shown = (el) => {
+    if (!(el instanceof Element) || (SKIP_TAGS.has(el.tagName) && !isVideoFrame(el)) || el.id === '__huescribe-root' || el.closest?.('[data-pl-ignore]')) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1;
+  };
+  /** Visible children. Wrappers with `display: contents` have no box of their own (zero size), so
+   *  their children stand in for them (frameworks wrap whole pages in these). */
+  /** An embedded player (YouTube, Vimeo, an oEmbed video) counts as a video. */
+  function isVideoFrame(el) { return el?.tagName === 'IFRAME' && /youtube|vimeo|video|player|oembed|wistia|stream/i.test(`${el.getAttribute('src') || ''} ${el.className || ''} ${el.parentElement?.className || ''}`); }
+  const kidsOf = (el) => [...el.children].flatMap((k) => (k instanceof Element && !SKIP_TAGS.has(k.tagName) && getComputedStyle(k).display === 'contents' ? kidsOf(k) : [k])).filter(shown);
+  const r0 = (n) => Math.round(n);
+  const pxv = (v) => `${r0(px(v))}px`;
+
+  // ---------- what a piece of text is FOR (never what it says) ----------
+
+  const textOf = (el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  const wordCount = (el) => (textOf(el).match(/\S+/g) || []).length;
+  /** "3 words", or for several: "1 word each" / "1–2 words each". `tr`: in the reader's language
+   *  (outlines stay English: prompts.js reads "N words" from them). */
+  function wordsLabel(list, tr = false) {
+    const n = list.map(wordCount);
+    const lo = Math.min(...n), hi = Math.max(...n);
+    const each = list.length > 1 ? ' each' : '';
+    const num = lo === hi ? `${lo}` : `${lo}–${hi}`;
+    if (tr) {
+      if (hi > 25 && list.length === 1) return t('about {n} words', { n: Math.round(hi / 5) * 5 });
+      return each ? tn(hi, '{num} word each', '{num} words each', { num }) : tn(hi, '{num} word', '{num} words', { num });
+    }
+    return hi > 25 && list.length === 1 ? `about ${Math.round(hi / 5) * 5} words` : `${num} word${hi === 1 ? '' : 's'}${each}`;
+  }
+
+  /** The job a piece of text does on the page, guessed from its role, place and wording.
+   *  English (outlines and color lists keep it: prompts.js reads it); purposeWords() writes it out. */
+  function purposeOf(el, kind) {
+    const t = textOf(el).toLowerCase();
+    const inFooter = !!el.closest('footer, [role=contentinfo]');
+    const inNav = !!el.closest('nav, header, [role=banner]');
+    const inCard = !!el.parentElement?.closest('*') && (() => { for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) if (kindOf(n) === 'card') return true; return false; })();
+    if (kind === 'heading') {
+      const hs = getComputedStyle(el);
+      const nx = el.nextElementSibling;
+      if (el.tagName !== 'H1' && wordCount(el) <= 4 && (hs.textTransform === 'uppercase' || px(hs.letterSpacing) > 0.5) && nx && kindOf(nx) === 'heading' && px(getComputedStyle(nx).fontSize) > px(hs.fontSize)) return tk('small label above the title');
+      if (el.tagName === 'H1') return tk('main headline');
+      if (inCard) return tk('card title');
+      if (inFooter) return tk('footer column title');
+      return el.tagName === 'H2' ? tk('section title') : tk('subheading');
+    }
+    if (kind === 'button' || kind === 'link' || kind === 'nav link') {
+      if (/\b(sign|log) ?in\b/.test(t)) return tk('sign-in');
+      if (/sign ?up|get started|start|try|create (an )?account|join|register|free trial/.test(t)) return tk('sign-up call to action');
+      if (/contact|book|demo|talk to|schedule|get in touch/.test(t)) return tk('contact / demo request');
+      if (/buy|cart|order|shop|checkout|subscribe|pricing|plans?\b/.test(t) && kind === 'button') return tk('purchase');
+      if (/learn more|read more|see (more|all|how)|view|explore|discover/.test(t)) return tk('learn-more link');
+      if (/download|install|get the app/.test(t)) return tk('download');
+      if (inFooter && /privacy|terms|cookie|legal|imprint/.test(t)) return tk('legal link');
+      if (kind === 'nav link' || (inNav && kind === 'link')) return tk('page link');
+      if (inFooter) return tk('footer link');
+      if (kind === 'button') return paintOf(el).length ? tk('main call to action') : tk('secondary action');
+      return tk('link');
+    }
+    if (kind === 'badge') return tk('small tag');
+    if (/©|copyright|all rights reserved/.test(t)) return tk('copyright line');
+    if (/[$€£]\s?\d|\d\s?[$€£]|\/\s?(mo|month|yr|year)\b/.test(t)) return tk('price');
+    const cs = getComputedStyle(el);
+    const next = el.nextElementSibling;
+    if (wordCount(el) <= 4 && (cs.textTransform === 'uppercase' || px(cs.letterSpacing) > 0.5) && next && kindOf(next) === 'heading') return tk('small label above the title');
+    if (inCard) return tk('card description');
+    const prev = el.previousElementSibling;
+    if (prev && prev.tagName === 'H1') return tk('supporting line under the headline');
+    if (prev && kindOf(prev) === 'heading') return tk('description under the title');
+    if (inFooter) return tk('footer text');
+    if (wordCount(el) <= 3) return tk('short label');
+    return tk('paragraph');
+  }
+
+  const purposeWords = (el, kind) => t(purposeOf(el, kind));
+  /** Plurals of the purposes an outline pluralizes (several look-alike links, titles…), English + "s". */
+  const PURPOSE_PLURAL = { 'small label above the title': tk('small label above the titles'), 'card title': tk('card titles'), 'footer column title': tk('footer column titles'), 'section title': tk('section titles'), 'sign-up call to action': tk('sign-up call to actions'), 'learn-more link': tk('learn-more links'), 'legal link': tk('legal links'), 'page link': tk('page links'), 'footer link': tk('footer links'), 'main call to action': tk('main call to actions'), 'secondary action': tk('secondary actions'), link: tk('links'), 'small tag': tk('small tags'), 'short label': tk('short labels'), 'description under the title': tk('description under the titles') };
+
+  /** A section's job: hero, cards, pricing, questions, call to action… */
+  /** `tr`: in the reader's language; English where prompts.js reads it (e.g. "Part 2, Navigation bar:"). */
+  function sectionPurpose(band, tr = false) {
+    const say = (en) => (tr ? t(en) : en);
+    const all = [...band.querySelectorAll('*')].filter(shown);
+    const cards = all.filter((e) => kindOf(e) === 'card' && !e.parentElement.closest('*') === false).filter((e) => { for (let n = e.parentElement; n && n !== band; n = n.parentElement) if (kindOf(n) === 'card') return false; return true; });
+    const text = textOf(band);
+    if (/[$€£]\s?\d.*(mo|month|yr|year)/i.test(text) && cards.length >= 2) return tr ? tn(cards.length, 'pricing ({n} plan)', 'pricing ({n} plans)') : `pricing (${cards.length} plans)`;
+    if (band.querySelector('details, [aria-expanded]') && (text.match(/\?/g) || []).length >= 3) return say(tk('questions and answers (FAQ)'));
+    if (band.querySelector('blockquote, q') || /testimonial|review/i.test(band.className)) return say(tk('testimonials'));
+    if (band.querySelector('form, input:not([type=hidden])')) return say(tk('form'));
+    if (cards.length >= 2) return tr ? tn(cards.length, 'cards section ({n} card)', 'cards section ({n} cards)') : `cards section (${cards.length} cards)`;
+    const imgs = all.filter((e) => /^(IMG|svg)$/i.test(e.tagName) && e.getBoundingClientRect().height <= 80);
+    if (imgs.length >= 4 && wordCount(band) < 20) return say(tk('logo strip'));
+    const btns = all.filter((e) => kindOf(e) === 'button');
+    if (btns.length && wordCount(band) <= 20) return say(tk('call-to-action band'));
+    if (all.some((e) => (/^(IMG|VIDEO|PICTURE)$/.test(e.tagName) || isVideoFrame(e)) && e.getBoundingClientRect().width >= band.getBoundingClientRect().width * 0.35)) return say(tk('text with a large picture'));
+    return say(tk('text section'));
+  }
+
+  function textSample(el, max = 40) {
+    const t = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    if (t.length <= max) return `"${t}"`;
+    const words = t.split(' ');
+    return `"${words.slice(0, 6).join(' ')}…" (${words.length} words)`;
+  }
+
+  /** The color text is painted in: a gradient when the text is gradient-filled. */
+  function textPaint(cs) {
+    const clip = cs.backgroundClip || cs.webkitBackgroundClip || '';
+    if (/text/.test(clip) && cs.backgroundImage.includes('gradient')) return `gradient text ${hexify(cs.backgroundImage)}`;
+    return normColor(cs.color) || cs.color;
+  }
+
+  /** Everything painted behind an element's own box: color, gradients, picture, blur. */
+  function paintOf(el, cs = getComputedStyle(el)) {
+    const out = [];
+    const bg = normColor(cs.backgroundColor);
+    const clipText = /text/.test(cs.backgroundClip || cs.webkitBackgroundClip || '');
+    if (!clipText) {
+      for (const layer of cs.backgroundImage === 'none' ? [] : splitTop(cs.backgroundImage)) {
+        if (layer.includes('gradient')) out.push(hexify(layer));
+        else if (layer.startsWith('url(')) out.push(`picture (${cs.backgroundSize === 'cover' ? 'covers the area' : cs.backgroundSize})`);
+      }
+    }
+    if (bg) out.push(bg);
+    const blur = (cs.backdropFilter || cs.webkitBackdropFilter || '').match(/blur\(([^)]+)\)/);
+    if (blur) out.push(`see-through with ${blur[1]} blur behind`);
+    return out;
+  }
+  /** Split a comma list at the top level (gradients contain commas). */
+  function splitTop(v) {
+    const out = []; let depth = 0, cur = '';
+    for (const ch of v) {
+      if (ch === '(') depth++; else if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  }
+
+  // Layout only (formats): no font families, weights or colors, just how things are arranged and sized.
+  let bareMode = false;
+
+  function boxWords(cs) {
+    const out = [];
+    const pad = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(pxv);
+    if (pad.some((p) => p !== '0px')) out.push(`padding ${pad[0] === pad[2] && pad[1] === pad[3] ? (pad[0] === pad[1] ? pad[0] : `${pad[0]} ${pad[1]}`) : pad.join(' ')}`);
+    if (px(cs.borderTopLeftRadius) > 0) out.push(`radius ${cs.borderTopLeftRadius === '9999px' || px(cs.borderTopLeftRadius) > 500 ? 'full (pill)' : pxv(cs.borderTopLeftRadius)}`);
+    const sides = ['Top', 'Right', 'Bottom', 'Left'].filter((s) => px(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== 'none' && normColor(cs[`border${s}Color`]));
+    if (sides.length) out.push(`border ${sides.length === 4 ? '' : `(${sides.join('/').toLowerCase()}) `}${pxv(cs[`border${sides[0]}Width`])}${bareMode ? '' : ` ${cs[`border${sides[0]}Style`]} ${normColor(cs[`border${sides[0]}Color`]) || ''}`}`.trim());
+    if (cs.boxShadow !== 'none') out.push(bareMode ? 'raised (shadow)' : `shadow ${hexify(cs.boxShadow)}`);
+    return out;
+  }
+
+  function fontWordsShort(cs) {
+    if (bareMode) return `text size ${pxv(cs.fontSize)}`; // the size sets the hierarchy; the font itself is not part of a format
+    const fam = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+    return `${fam} ${pxv(cs.fontSize)}, weight ${cs.fontWeight}${cs.textTransform === 'uppercase' ? ', uppercase' : ''}${px(cs.letterSpacing) ? `, letter-spacing ${cs.letterSpacing}` : ''}, ${textPaint(cs)}`;
+  }
+
+  /** How a container arranges its children, in words + numbers. */
+  function arrangeWords(el, cs, kids) {
+    const out = [];
+    // gap is "row column"; a row of things uses the column gap, a stack the row gap ("normal" = none).
+    const [rg, cg = rg] = String(cs.gap || '').split(' ');
+    const isRow = cs.display.includes('flex') && !cs.flexDirection.startsWith('column');
+    const g0 = isRow ? cg : rg;
+    const gap = g0 && g0 !== 'normal' && g0 !== '0px' ? g0 : '';
+    if (cs.display.includes('grid')) {
+      let cols = cs.gridTemplateColumns.split(' ').filter(Boolean);
+      let w = cols.map(px);
+      // Children spanning several tracks: describe the columns you actually see.
+      const firstRow = kids.map((k) => k.getBoundingClientRect()).filter((r, i, all) => r.width > 0 && Math.abs(r.top - all[0].top) < 4);
+      if (firstRow.length >= 1 && firstRow.length < cols.length && kids.length < cols.length) { w = firstRow.map((r) => r.width); cols = w.map(String); }
+      const equal = w.every((v) => Math.abs(v - w[0]) <= 1.5);
+      out.push(`grid, ${cols.length} ${equal && cols.length > 1 ? 'equal ' : ''}column${cols.length > 1 ? 's' : ''}${equal ? '' : ` (${w.map((v) => `${r0(v)}px`).join(' ')})`}${gap ? `, gap ${gap}` : ''}`);
+    } else if (cs.display.includes('flex')) {
+      const row = !cs.flexDirection.startsWith('column');
+      const just = { 'space-between': 'spread to both ends', center: 'centered', 'flex-end': 'pushed to the end', end: 'pushed to the end', 'space-around': 'spaced evenly', 'space-evenly': 'spaced evenly' }[cs.justifyContent];
+      out.push(`${row ? 'in a row' : 'stacked'}${just ? `, ${just}` : ''}${row && cs.alignItems === 'center' ? ', vertically centered' : !row && cs.alignItems === 'center' ? ', centered' : ''}${gap ? `, gap ${gap}` : ''}${cs.flexWrap === 'wrap' ? ', wraps' : ''}`);
+      if (row && kids.length >= 2 && kids.length <= 4) {
+        const pr = el.getBoundingClientRect();
+        const where = kids.map((k) => { const r = k.getBoundingClientRect(); const c = (r.left + r.width / 2 - pr.left) / pr.width; return c < 0.34 ? 'left' : c > 0.66 ? 'right' : 'middle'; });
+        if (new Set(where).size > 1) out.push(`positions: ${where.join(', ')}`);
+      }
+    } else if (kids.length > 1) out.push('stacked');
+    // Stacked children narrower than the box: do they line up on the left, center or right?
+    if (!cs.display.includes('grid') && !(cs.display.includes('flex') && !cs.flexDirection.startsWith('column'))) {
+      const pr = el.getBoundingClientRect();
+      const L = pr.left + px(cs.paddingLeft), R = pr.right - px(cs.paddingRight);
+      const narrow = kids.map((k) => k.getBoundingClientRect()).filter((r) => r.width > 0 && r.width < (R - L) * 0.9);
+      if (narrow.length) {
+        const side = (r) => (Math.abs(r.left - L) <= 3 ? 'left' : Math.abs((r.left + r.right) / 2 - (L + R) / 2) <= 4 ? 'center' : Math.abs(R - r.right) <= 3 ? 'right' : 'other');
+        const sides = new Set(narrow.map(side));
+        if (sides.size === 1 && !sides.has('other')) out.push({ left: 'lined up on the left', center: 'lined up in the center', right: 'lined up on the right' }[[...sides][0]]);
+      }
+    }
+    if (cs.textAlign === 'center') out.push('text centered');
+    return out;
+  }
+
+  /** `tr`: in the reader's language (outlines stay English: prompts.js reads them). */
+  function sizeWords(el, cs, lean = false, tr = false) {
+    const r = el.getBoundingClientRect();
+    const docW = document.documentElement.clientWidth;
+    const out = [];
+    const pcs = el.parentElement ? getComputedStyle(el.parentElement) : null;
+    const flowChild = pcs && /flex|grid/.test(pcs.display); // its width comes from the parent's layout
+    if (r.width >= docW * 0.97) out.push(tr ? t('full width') : 'full width');
+    else if (cs.maxWidth !== 'none') out.push(`max-width ${cs.maxWidth}`);
+    else if (!(lean && flowChild)) out.push(tr ? t('{w}px wide', { w: r0(r.width) }) : `${r0(r.width)}px wide`);
+    const place = r.width < docW * 0.97 ? placeAcross(el, tr) : '';
+    if (place) out.push(place);
+    if (px(cs.minHeight) >= 200 || /vh/.test(el.style.minHeight)) out.push(`min-height ${cs.minHeight}`);
+    if (cs.position === 'sticky' || cs.position === 'fixed') {
+      const atTop = px(cs.top) <= 1 || cs.top === 'auto';
+      if (!tr) out.push(`${cs.position === 'fixed' ? 'fixed' : 'sticky'} at the ${atTop ? 'top' : `top + ${cs.top}`} (stays while scrolling)`);
+      else if (cs.position === 'fixed') out.push(atTop ? t('fixed at the top (stays while scrolling)') : t('fixed at the top + {top} (stays while scrolling)', { top: cs.top }));
+      else out.push(atTop ? t('sticky at the top (stays while scrolling)') : t('sticky at the top + {top} (stays while scrolling)', { top: cs.top }));
+    }
+    return out;
+  }
+
+  const isInline = (k) => /^inline/.test(getComputedStyle(k).display) && !['IMG', 'SVG', 'BUTTON', 'INPUT', 'SELECT', 'VIDEO', 'CANVAS'].includes(k.tagName.toUpperCase());
+
+  /**
+   * The style the text is really set in. Some sites set font-size: 0 on a wrapper (to remove the gaps
+   * between inline pieces) and the real size on the pieces inside.
+   */
+  function textStyle(el, cs = getComputedStyle(el)) {
+    if (px(cs.fontSize) > 0) return cs;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(), i = 0; t && i < 200; t = w.nextNode(), i++) {
+      if (!t.textContent.trim() || !t.parentElement) continue;
+      const c = getComputedStyle(t.parentElement);
+      if (px(c.fontSize) > 0) return c;
+    }
+    return cs;
+  }
+
+  /** One line for a leaf (something you see, not a box of other things). */
+  function leafLine(el, cs0, kind, inNav, same = []) {
+    // Size and font from where the text really is (a 0px wrapper says nothing).
+    const cs = textStyle(el, cs0);
+    const r = el.getBoundingClientRect();
+    // Look-alike siblings: name each one's text (e.g. every menu link), then their shared style.
+    const list = same.length > 1 ? same : [el];
+    // Purposes are written out with their own keys (prompts.js matches t(purpose) too).
+    const plural = (w) => t(list.length > 1 && /(link|title|tag|label|action)$/.test(w) ? PURPOSE_PLURAL[w] || `${w}s` : w);
+    const purpose = (k) => (textOf(el) ? `${plural(purposeOf(el, k))}, ${wordsLabel(list)}` : plural(purposeOf(el, k)));
+    const icon = [...el.children].find((k) => /^(svg|img)$/i.test(k.tagName) && k.getBoundingClientRect().width <= 64);
+    const iconWords = icon && (el.innerText || '').trim() ? `, with a ${r0(icon.getBoundingClientRect().width)}×${r0(icon.getBoundingClientRect().height)} ${inNav && !el.previousElementSibling ? 'logo mark' : 'icon'} ${icon.compareDocumentPosition(el.lastChild) & Node.DOCUMENT_POSITION_FOLLOWING || icon === el.firstElementChild ? 'before' : 'after'} the text` : '';
+    if (kind === 'image') {
+      const what = el.tagName === 'VIDEO' || isVideoFrame(el) ? 'video' : el.tagName === 'CANVAS' ? 'canvas (drawn graphic)' : (r.width <= 48 && r.height <= 48) ? 'icon' : inNav && r.height <= 64 ? 'logo' : el.tagName.toLowerCase() === 'svg' ? 'illustration (svg)' : 'image';
+      return `${what} ${r0(r.width)}×${r0(r.height)}${px(cs.borderTopLeftRadius) ? `, radius ${pxv(cs.borderTopLeftRadius)}` : ''}${cs.objectFit && cs.objectFit !== 'fill' ? `, ${cs.objectFit}` : ''}`;
+    }
+    if (kind === 'button') {
+      const fill = paintOf(el, cs);
+      const look = fill.length ? (bareMode ? 'filled' : `filled ${fill.join(' + ')}`) : px(cs.borderTopWidth) > 0 ? 'outlined' : 'text only';
+      return `button${same.length > 1 ? ` ×${same.length}` : ''}: ${purpose('button')} — ${look}; ${fontWordsShort(cs)}; ${boxWords(cs).join(', ')}`;
+    }
+    if (kind === 'input') return `input box ${r0(r.width)}×${r0(r.height)} — ${[...(bareMode ? [] : paintOf(el, cs)), ...boxWords(cs)].join(', ')}`;
+    if (kind === 'badge') return `badge: ${purpose('badge')} — ${bareMode ? 'filled' : paintOf(el, cs).join(' + ')}; ${fontWordsShort(cs)}; ${boxWords(cs).join(', ')}`;
+    const logo = inNav && icon && !el.previousElementSibling && /^(A)$/.test(el.tagName);
+    const name = logo ? 'logo' : kind === 'heading' ? `heading (${el.tagName.toLowerCase()})` : kind === 'nav link' ? 'menu link' : kind === 'link' ? 'link' : el.tagName === 'LI' ? 'list item' : 'text';
+    const extra = cs.maxWidth !== 'none' ? `, max-width ${cs.maxWidth}` : '';
+    const deco = cs.textDecorationLine !== 'none' && !/^(A)$/.test(el.tagName) ? `, ${cs.textDecorationLine}` : '';
+    // Alignment of the words themselves: easy to lose, and it changes the whole feel of a block.
+    const ta = /^(heading|text|link)$/.test(kind) && !inNav ? `, ${alignWord(cs.textAlign, cs.direction)}` : '';
+    const job = logo ? (textOf(el) ? `${t('picture + brand name')}, ${wordsLabel(list)}` : t('picture only')) : purpose(kind === 'container' ? 'text' : kind);
+    return `${name}${same.length > 1 ? ` ×${same.length}` : ''}: ${job} — ${fontWordsShort(cs)}${ta}${extra}${deco}${iconWords}`;
+  }
+
+  /** "left-aligned", "centered"… for text-align (start/end follow the writing direction). */
+  function alignWord(ta, dir = 'ltr') {
+    const rtl = dir === 'rtl';
+    if (ta === 'center') return 'centered';
+    if (ta === 'justify') return 'justified';
+    if (ta === 'right' || (ta === 'end' && !rtl) || (ta === 'start' && rtl)) return 'right-aligned';
+    return 'left-aligned';
+  }
+
+  /** Where a box sits inside its parent across: "on the left", "centered", "on the right" (only when it's narrower). */
+  function placeAcross(el, tr = false) {
+    const p = el.parentElement;
+    if (!p) return '';
+    const r = el.getBoundingClientRect(), pr = p.getBoundingClientRect();
+    const pcs = getComputedStyle(p);
+    const left = pr.left + px(pcs.paddingLeft) + px(pcs.borderLeftWidth), right = pr.right - px(pcs.paddingRight) - px(pcs.borderRightWidth);
+    const inner = right - left;
+    if (inner <= 0 || r.width >= inner * 0.9) return '';
+    const dl = r.left - left, dr = right - r.right;
+    const say = (en) => (tr ? t(en) : en);
+    if (Math.abs(dl - dr) <= Math.max(4, inner * 0.02)) return say(tk('centered in its parent'));
+    return dl < dr ? say(tk('on the left of its parent')) : say(tk('on the right of its parent'));
+  }
+
+  const LEAF_KINDS = new Set(['heading', 'text', 'link', 'nav link', 'button', 'image', 'input', 'badge']);
+
+  /**
+   * An indented outline of what is inside `root`: each box, how it arranges its children, sizes,
+   * colors and type. Look-alike siblings are folded into one ("card ×3").
+   */
+  /**
+   * A row of same-looking slides that is much wider than what shows (a carousel or slider).
+   * Returns how it works in words, or '' when it isn't one.
+   */
+  function carouselOf(el, kids) {
+    if (kids.length < 3) return '';
+    const sigOf = (k) => `${k.tagName}|${k.children.length}`;
+    if (!kids.every((k) => sigOf(k) === sigOf(kids[0]))) return '';
+    const rs = kids.map((k) => k.getBoundingClientRect());
+    const w = rs[0].width;
+    if (w < 120 || !rs.every((r) => Math.abs(r.width - w) < w * 0.15)) return '';
+    // What is visible: the nearest box that clips the row, or the window.
+    let view = Math.min(innerWidth, document.documentElement.clientWidth);
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (/hidden|clip|auto|scroll/.test(getComputedStyle(n).overflowX)) { view = Math.min(view, n.getBoundingClientRect().width); break; }
+    }
+    const span = Math.max(...rs.map((r) => r.right)) - Math.min(...rs.map((r) => r.left));
+    const oneRow = rs.every((r) => Math.abs(r.top - rs[0].top) < 20);
+    if (!oneRow || span < view * 1.4) return '';
+    const fit = view / w;
+    const shown = fit < 1.2 ? 'one shown at a time' : fit < 1.95 ? 'one in the middle with the next ones peeking in at the sides' : `about ${Math.floor(fit)} shown at a time`;
+    return `${kids.length} slides in one row, ${r0(w)}px each, ${shown}; the rest move in sideways (arrows, dots or swipe)`;
+  }
+
+  function outline(root, { maxDepth = 7, maxLines = 70, lean = false, bare = false } = {}) {
+    const prevBare = bareMode;
+    bareMode = bare;
+    try { return outlineNow(root, maxDepth, maxLines, lean); } finally { bareMode = prevBare; }
+  }
+  function outlineNow(root, maxDepth, maxLines, lean) {
+    const lines = [];
+    const inNavRoot = !!root.closest?.('nav, header, [role=banner]') || root.tagName === 'NAV';
+    // Siblings count as repeats only if they hold the same kind of thing (a picture box ≠ a text box).
+    const sig = (el) => `${el.tagName}|${kindOf(el)}|${kidsOf(el).length}|${[...el.classList].filter((c) => !/active|current|selected|visible/i.test(c)).slice(0, 2).join('.')}|${el.querySelector('img, picture, video') ? 'pic' : ''}${el.querySelector('h1,h2,h3,h4,h5,h6') ? 'h' : ''}${(el.innerText || '').trim() ? 't' : ''}`;
+    const walk = (el, depth, count = 1, group = [el]) => {
+      if (lines.length >= maxLines) return;
+      const cs = getComputedStyle(el);
+      const kind = kindOf(el, cs);
+      let kids = kidsOf(el);
+      const inNav = inNavRoot || !!el.closest('nav, header');
+      const pad = '  '.repeat(depth);
+      const times = count > 1 ? ` ×${count}` : '';
+      // Text with inline bits (a <strong>, a split heading, a small icon) is one line of text.
+      const smallPic = (k) => /^(svg|img)$/i.test(k.tagName) && k.getBoundingClientRect().width <= 64;
+      // Inline-block slides or tiles are layout, not words in a line of text.
+      const bigInline = (k) => /^inline-(block|flex|grid)$/.test(getComputedStyle(k).display) && (k.getBoundingClientRect().width > 300 || !!k.querySelector('img, picture, video, h1, h2, h3, h4, p') || kindOf(k) === 'button' || paintOf(k).length > 0);
+      const textLeaf = kids.every((k) => (isInline(k) && !bigInline(k)) || smallPic(k)) && (el.innerText || '').trim();
+      const leafGroup = count > 1 ? group : [];
+      if (LEAF_KINDS.has(kind) && (textLeaf || !kids.length || kind === 'button' || kind === 'image' || kind === 'input')) {
+        lines.push(`${pad}- ${leafLine(el, cs, kind, inNav, leafGroup)}${leafGroup.length ? '' : times}`);
+        return;
+      }
+      if (!kids.length) {
+        if (textLeaf) lines.push(`${pad}- ${leafLine(el, cs, 'text', inNav, leafGroup)}${leafGroup.length ? '' : times}`);
+        else { const p = paintOf(el, cs); if (p.length) lines.push(`${pad}- decoration ${r0(el.getBoundingClientRect().width)}×${r0(el.getBoundingClientRect().height)}${bareMode ? ' (a colored shape behind the content)' : ` — ${p.join(' + ')}${cs.filter !== 'none' ? `, ${cs.filter}` : ''}`}`); }
+        return;
+      }
+      if (textLeaf) { lines.push(`${pad}- ${leafLine(el, cs, /^(A)$/.test(el.tagName) ? (inNav ? 'nav link' : 'link') : 'text', inNav, leafGroup)}${leafGroup.length ? '' : times}`); return; }
+      const own = [...(bareMode ? (paintOf(el, cs).length ? ['own background'] : []) : paintOf(el, cs)), ...boxWords(cs)];
+      // A plain wrapper around one thing adds nothing: describe the thing.
+      if (kids.length === 1 && !own.length && cs.maxWidth === 'none' && el !== root && !/^(NAV|HEADER|FOOTER|SECTION|UL|OL)$/.test(el.tagName)) { walk(kids[0], depth, count, group.map((g) => kidsOf(g)[0] || g)); return; }
+      let noun = { nav: 'menu', header: 'header', footer: 'footer', card: 'card', section: 'section' }[kind] || (el.tagName === 'UL' || el.tagName === 'OL' ? 'list' : 'box');
+      let bits = [...arrangeWords(el, cs, kids), ...sizeWords(el, cs, lean), ...own];
+      const slides = carouselOf(el, kids);
+      if (slides) { noun = 'carousel'; bits = [slides]; }
+      lines.push(`${pad}- ${noun}${times}${bits.length ? ` — ${bits.join('; ')}` : ''}`);
+      if (depth >= maxDepth) { lines.push(`${pad}  - … (${kids.length} more inside)`); return; }
+      for (let i = 0; i < kids.length;) {
+        let j = i + 1;
+        while (j < kids.length && sig(kids[j]) === sig(kids[i])) j++;
+        walk(kids[i], depth + 1, j - i, kids.slice(i, j));
+        i = j;
+      }
+    };
+    walk(root, 0);
+    if (lines.length >= maxLines) lines.push('- … (shortened)');
+    return lines.join('\n');
+  }
+
+  function structureItem(el, title = t('Structure')) {
+    const kids = kidsOf(el).length;
+    let extra = '';
+    if (el.getBoundingClientRect().height >= 120) {
+      try { extra = `\n\n${spacingFacts(el)}\n\n${t('Color relationships')} ${t('(keep these even in other colors):')}\n${colorRelations(el).join('\n')}`; }
+      catch (err) { console.debug('[Huescribe] spacing/color relationships failed', err); }
+    }
+    try { extra = `\n\n${positionFacts(el)}${extra}`; } catch (err) { console.debug('[Huescribe] position facts failed', err); }
+    return mk({ target: reg(el), rect: rectOf(el), group: GROUPS.layout, type: 'structure', title, desc: t('What is inside, in what order, and how it is laid out, and where it sits.'), tech: '', context: tn(kids, '{n} part inside', '{n} parts inside'), code: outline(el, { bare: true }) + extra, preview: { kind: 'none' } });
+  }
+
+  // ---------- navigation bar ----------
+
+  function navRootFor(el) {
+    if (!el) return null;
+    let own = el.matches('header, nav, [role=banner], [role=navigation]') ? el : el.querySelector?.('header, nav, [role=banner], [role=navigation]');
+    if (!own) {
+      // Picked the inner bar of a header: same width, most of its height.
+      const up = el.closest?.('header, [role=banner]');
+      const a = el.getBoundingClientRect(), b = up?.getBoundingClientRect();
+      if (up && Math.abs(a.width - b.width) <= 60 && a.height >= b.height * 0.5) own = up;
+    }
+    if (!own) return null;
+    const top = own.closest('header, [role=banner]') || own;
+    const r = top.getBoundingClientRect();
+    return r.height <= 220 ? top : own;
+  }
+
+  function navItem(nav) {
+    const cs = getComputedStyle(nav);
+    const r = nav.getBoundingClientRect();
+    const facts = [];
+    // A header whose bar is fixed inside it measures 0px itself: use its tallest child.
+    const tall = r.height || Math.max(0, ...kidsOf(nav).map((k) => k.getBoundingClientRect().height));
+    facts.push(t('Bar: {h}px tall; {size}{over}', { h: r0(tall), size: sizeWords(nav, cs, false, true).join('; '), over: cs.position === 'absolute' ? t('; laid over the top of the first section') : '' }));
+    // Layout only: whether it has a fill, not which color (colors are their own choice).
+    const paint = paintOf(nav, cs).length || kidsOf(nav).some((k) => paintOf(k).length && k.getBoundingClientRect().width >= r.width * 0.9);
+    facts.push(t('Background: {what}{box}', { what: paint ? t('a solid bar of its own') : t('none (see-through, shows what is behind it)'), box: boxWords(cs).length ? `; ${boxWords(cs).join(', ')}` : '' }));
+    if (/background|backdrop|box-shadow|all/.test(cs.transitionProperty) && cs.transitionDuration !== '0s') facts.push(t('Changes smoothly ({props} {time}), likely when you scroll', { props: cs.transitionProperty, time: cs.transitionDuration }));
+    const links = [...nav.querySelectorAll('a, button')].filter(shown);
+    // The logo: a link holding a picture and little or no text, wherever it sits in the bar.
+    const logo = links.find((a) => a.tagName === 'A' && a.querySelector('img, svg') && textOf(a).length <= 30 && a.getBoundingClientRect().width >= 60);
+    const isLogo = (a) => a === logo;
+    const textLinks = links.filter((a) => !isLogo(a) && /link/.test(kindOf(a)));
+    // The menu's links share one style; other links (like "Sign in") are listed separately.
+    // Size, weight and spacing only: the family and color come from the Fonts and Colors choices.
+    const styleKey = (a) => { const c = getComputedStyle(a); return `${r0(px(c.fontSize))}px, weight ${c.fontWeight}${px(c.letterSpacing) ? `, letter spacing ${(px(c.letterSpacing) / px(c.fontSize)).toFixed(2)}em` : ''}${c.textTransform === 'uppercase' ? ', all caps' : ''}`; };
+    const byStyle = new Map();
+    for (const a of textLinks) bump(byStyle, styleKey(a));
+    const mainStyle = topBy(byStyle, 1)[0];
+    const menu = textLinks.filter((a) => styleKey(a) === mainStyle);
+    const others = textLinks.filter((a) => styleKey(a) !== mainStyle);
+    const buttons = links.filter((a) => kindOf(a) === 'button');
+    if (logo) {
+      const lr = logo.getBoundingClientRect();
+      const mid = lr.left + lr.width / 2 - r.left;
+      const where = Math.abs(mid - r.width / 2) < r.width * 0.12 ? t('centered in the bar') : mid < r.width / 2 ? t('on the left') : t('on the right');
+      facts.push(t('Logo: {where}, {what}', { where, what: textOf(logo) ? t('picture + brand name') : t('picture only') }));
+    }
+    if (menu.length) facts.push(t('Menu links: {n} page links, {words}; {style}', { n: menu.length, words: wordsLabel(menu, true), style: mainStyle }));
+    for (const a of others) facts.push(t('Also a {purpose} link ({style})', { purpose: purposeWords(a, kindOf(a)), style: styleKey(a) }));
+    const btnWord = (b) => (textOf(b) ? t('{purpose} ({words})', { purpose: purposeWords(b, 'button'), words: wordsLabel([b], true) }) : b.getAttribute('aria-label') ? t('icon button ({label})', { label: b.getAttribute('aria-label').toLowerCase() }) : t('icon button'));
+    if (buttons.length) facts.push(t('Buttons: {list}', { list: buttons.map(btnWord).join(', ') }));
+    const ord = (i) => (i === 0 ? t('1st') : i === 1 ? t('2nd') : i === 2 ? t('3rd') : t('{n}th', { n: i + 1 }));
+    const drop = menu.map((a, i) => (a.getAttribute('aria-haspopup') || a.hasAttribute('aria-expanded') || a.lastElementChild?.tagName.toLowerCase() === 'svg' ? ord(i) : null)).filter(Boolean);
+    if (drop.length) facts.push(drop.length > 1 ? t('The {which} menu links open dropdowns', { which: drop.reduce((x, y) => t('{a} and {b}', { a: x, b: y })) }) : t('The {which} menu link opens a dropdown', { which: drop[0] }));
+    const burger = [...nav.querySelectorAll('button, [role=button], a')].find((b) => getComputedStyle(b).display === 'none' && /menu|burger|toggle|nav/i.test(`${b.getAttribute('aria-label') || ''} ${b.className || ''}`));
+    const burgerShown = [...nav.querySelectorAll('button, [role=button]')].some((b) => shown(b) && /menu|burger|hamburger/i.test(`${b.getAttribute('aria-label') || ''} ${b.className || ''} ${b.parentElement?.className || ''} ${textOf(b)}`));
+    if (burgerShown) facts.push(t('Menu: behind a menu button even on desktop (the button opens the page links)'));
+    else if (burger) facts.push(t('Small screens: a menu button replaces the links (hidden at this width)'));
+    return mk({ target: reg(nav), rect: rectOf(nav), group: GROUPS.layout, type: 'navigation', title: t('Navigation bar'), desc: t('Where everything sits, its size, look and behavior.'), tech: '', context: '', code: `${facts.join('\n')}\n\n${t('Structure:')}\n${outline(nav, { maxDepth: 6, maxLines: 40, bare: true })}`, preview: { kind: 'none' } });
+  }
+
+  // ---------- the page, section by section ----------
+
+  /** The page's full-width bands from top to bottom (header, hero, sections, footer). */
+  function pageBands() {
+    const docW = document.documentElement.clientWidth;
+    // Full-screen fixed layers (menu backdrops, chat and feedback widgets) sit over the page: not sections.
+    const overlay = (k) => { const cs = getComputedStyle(k); return cs.position === 'fixed' && k.getBoundingClientRect().height >= innerHeight * 0.6; };
+    const wide = (k) => { const r = k.getBoundingClientRect(); return r.width >= docW * 0.8 && r.height >= 40 && !overlay(k); };
+    const hasPaint = (k) => paintOf(k).length > 0;
+    const out = [];
+    const walk = (el, d) => {
+      for (const k of kidsOf(el).filter(wide)) {
+        const inner = kidsOf(k).filter(wide);
+        const tall = k.getBoundingClientRect().height > innerHeight * 1.2;
+        // Descend through wrappers. A painted wrapper (e.g. a dark page shell) that holds several
+        // tall sections is a backdrop, not one section: its sections are what we list.
+        // A wrapper with one child of (almost) the same size is just a wrapper, painted or not
+        // (app frameworks nest ten of them around the real sections).
+        const kr = k.getBoundingClientRect();
+        const sameAsChild = inner.length === 1 && inner[0].getBoundingClientRect().height >= kr.height * 0.9;
+        if (d < 14 && ((!hasPaint(k) && (inner.length === 1 || (inner.length >= 2 && tall))) || sameAsChild || (hasPaint(k) && inner.length >= 2 && kr.height > innerHeight * 1.5))) walk(k, d + 1);
+        else out.push(k);
+      }
+    };
+    walk(document.body, 0);
+    // Page order, not measured position: a sticky bar measures where it is stuck while the page is scrolled.
+    return out.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  }
+
+  /** The page background behind everything (html/body), which bands without their own show. */
+  function pageBackground() {
+    const parts = [...paintOf(document.documentElement), ...paintOf(document.body)];
+    return parts.length ? parts : [t('none set (browser white shows only where a section has no background of its own)')];
+  }
+
+  function bump(map, key, w = 1) { if (key) map.set(key, (map.get(key) || 0) + w); }
+  const topBy = (map, n) => [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
+
+  /** The colors used inside one band: headings, text, links, buttons, cards, glows. */
+  function bandColors(band) {
+    const heads = new Map(), text = new Map(), links = new Map(), btns = new Map(), cards = new Map(), glows = [];
+    const all = [band, ...band.querySelectorAll('*')].filter(shown).slice(0, 800);
+    const br = band.getBoundingClientRect();
+    for (const el of all) {
+      const cs = getComputedStyle(el);
+      const kind = kindOf(el, cs);
+      const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+      if (kind === 'heading') bump(heads, textPaint(cs), 1);
+      else if (kind === 'button') bump(btns, `${paintOf(el, cs).join(' + ') || 'no fill'} with ${textPaint(cs)} text${px(cs.borderTopWidth) && normColor(cs.borderTopColor) ? `, border ${normColor(cs.borderTopColor)}` : ''}`);
+      else if (kind === 'link' || kind === 'nav link') bump(links, textPaint(cs));
+      else if (kind === 'card') bump(cards, `${paintOf(el, cs).join(' + ') || 'no fill'}${px(cs.borderTopWidth) && normColor(cs.borderTopColor) ? `, border ${normColor(cs.borderTopColor)}` : ''}`);
+      else if (own && !el.closest('h1,h2,h3,h4,h5,h6,a,button')) bump(text, textPaint(cs), (el.textContent || '').trim().length);
+      if (el !== band && (cs.position === 'absolute' || cs.position === 'fixed') && !own) {
+        const r = el.getBoundingClientRect();
+        const p = paintOf(el, cs);
+        if (p.length && r.width * r.height >= br.width * br.height * 0.05 && glows.length < 3) glows.push(`${p.join(' + ')}${cs.filter !== 'none' ? ` (${cs.filter})` : ''}${cs.opacity !== '1' ? `, opacity ${cs.opacity}` : ''}`);
+      }
+      if (el !== band && (el.tagName === 'VIDEO' || el.tagName === 'IMG' || el.tagName === 'CANVAS' || isVideoFrame(el))) {
+        const r = el.getBoundingClientRect();
+        if (r.width * r.height >= br.width * br.height * 0.6 && glows.length < 3) glows.push(`full-size ${el.tagName === 'VIDEO' || isVideoFrame(el) ? 'video' : el.tagName === 'CANVAS' ? 'animated canvas' : 'photo'} behind the content`);
+      }
+    }
+    return { heads: topBy(heads, 2), text: topBy(text, 2), links: topBy(links, 2), btns: topBy(btns, 2), cards: topBy(cards, 2), glows };
+  }
+
+  /**
+   * `tr`: the name in the reader's language. The "Section: " prefix always stays English: it is an
+   * identifier that callers strip (panel.js, picker.js); showName() writes it out for prompt text.
+   */
+  function bandName(band, i, bands, tr = false) {
+    const say = (en) => (tr ? t(en) : en);
+    const kind = kindOf(band);
+    const br = band.getBoundingClientRect();
+    // A short, full-width strip at the very top of the page is the top bar, whatever its tags say.
+    const topStrip = br.top + scrollY < 60 && br.height < 160 && br.width >= innerWidth * 0.9 && band.querySelectorAll('a, button').length >= 2;
+    if (kind === 'header' || kind === 'nav' || topStrip || band.querySelector(':scope > nav') && br.height < 200) return say(tk('Navigation bar'));
+    if (kind === 'footer') return say(tk('Footer'));
+    const firstContent = bands.findIndex((b) => !/^(Navigation bar)$/.test(bandName(b, 0, [])) && kindOf(b) !== 'header');
+    if (i === firstContent) return say(tk('Hero (first section)'));
+    return `Section: ${sectionPurpose(band, tr)}`;
+  }
+  /** A band name for text people read: "Section: x" in their language. */
+  const showName = (name) => (name.startsWith('Section: ') ? t('Section: {name}', { name: name.slice(9) }) : name);
+
+  /** The color scheme as it actually runs down the page, band by band. */
+  function colorJourney() {
+    const bands = pageBands();
+    const lines = [t('Page background (behind everything): {paint}', { paint: pageBackground().join(' + ') })];
+    const swatches = [];
+    let n = 0;
+    for (const [i, band] of bands.entries()) {
+      if (n >= 14) { lines.push(t('… and {n} more sections', { n: bands.length - n })); break; }
+      n++;
+      const r = band.getBoundingClientRect();
+      const own = paintOf(band);
+      const top = r0(r.top + scrollY);
+      lines.push('');
+      lines.push(t('{n}. {name} ({from}–{to}px)', { n, name: showName(bandName(band, i, bands, true)), from: top, to: top + r0(r.height) }));
+      lines.push(colorReport(band, '   '));
+      const sw = own.find((p) => /^#|^rgba/.test(p)) || (own[0] || '').match(/#[0-9a-f]{6}/i)?.[0];
+      if (sw) swatches.push(sw);
+    }
+    const grads = (lines.join('\n').match(/gradient\(/g) || []).length;
+    const desc = grads ? tn(grads, '{sections} sections from top to bottom, {n} gradient, each with its own colors.', '{sections} sections from top to bottom, {n} gradients, each with its own colors.', { sections: bands.length }) : t('{sections} sections from top to bottom, each with its own colors.', { sections: bands.length });
+    return { code: lines.join('\n'), desc, swatches: [...new Set(swatches)].slice(0, 5) };
+  }
+
+  function dominantBandBg() {
+    const byHeight = new Map();
+    for (const b of pageBands()) { const c = normColor(getComputedStyle(b).backgroundColor); if (c) bump(byHeight, c, b.getBoundingClientRect().height); }
+    return topBy(byHeight, 1)[0] || null;
+  }
+
+  function pageStructure() {
+    const bands = pageBands();
+    const lines = [];
+    for (const [i, band] of bands.slice(0, 14).entries()) {
+      const r = band.getBoundingClientRect();
+      lines.push(t('{n}. {name} — {h}px tall', { n: i + 1, name: showName(bandName(band, i, bands, true)), h: r0(r.height) }));
+      lines.push(outline(band, { maxDepth: 3, maxLines: 14 }).split('\n').map((l) => `   ${l}`).join('\n'));
+    }
+    return lines.join('\n');
+  }
+
+
+  // ---------- showing a hover / press effect on the page (v8.2) ----------
+
+  /**
+   * Show a CSS state (hover, press) on the real element: its :hover declarations are applied inline
+   * (so its own transition plays), held, then removed (so it plays back). Returns false if gone.
+   * `still`: apply without transition and keep it until `restore` is called (for a picture of the state).
+   */
+  function playState(ref, css, { hold = 900, still = false } = {}) {
+    const el = globalThis.__plTargets?.get(ref)?.deref();
+    if (!el || !el.isConnected) return false;
+    // Overlapping plays (replay loop, Play, pointing at the card) all go back to the TRUE original.
+    if (!('__plOrig' in el)) el.__plOrig = el.getAttribute('style');
+    el.__plPlays = (el.__plPlays || 0) + 1;
+    el.setAttribute('data-pl-own', ''); // the recorder ignores the transitions this causes
+    const decls = css.split(';').map((d) => d.trim()).filter(Boolean).map((d) => { const i = d.indexOf(':'); return [d.slice(0, i).trim(), d.slice(i + 1).replace(/!important/, '').trim()]; });
+    if (still) el.style.transition = 'none';
+    for (const [prop, val] of decls) if (prop && val) el.style.setProperty(prop, val, 'important');
+    if (still) return true; // kept until restoreState()
+    setTimeout(() => {
+      for (const [prop] of decls) el.style.removeProperty(prop);
+      setTimeout(() => endPlay(el), 600);
+    }, hold);
+    return true;
+  }
+  function endPlay(el) {
+    el.__plPlays = Math.max(0, (el.__plPlays || 1) - 1);
+    if (el.__plPlays) return;
+    const orig = el.__plOrig;
+    delete el.__plOrig;
+    if (orig === null || orig === undefined) el.removeAttribute('style'); else el.setAttribute('style', orig);
+    // Keep the mark until the play-back transition has finished, then the element is the page's again.
+    setTimeout(() => { if (!el.__plPlays) el.removeAttribute('data-pl-own'); }, 1200);
+  }
+  function restoreState(ref) {
+    const el = globalThis.__plTargets?.get(ref)?.deref();
+    if (el && '__plOrig' in el) endPlay(el);
+  }
+
+  // ---------- scroll behavior (v8) ----------
+  // Measured by scrolling the page a little and back: what stays put, what moves slower or
+  // sideways, what fades/moves in, and which colors change. Scroll reveals that fire meanwhile
+  // are caught by the recorder too. The page is put back where it was.
+
+  const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+  async function settleScroll(y) {
+    window.scrollTo({ top: y, left: scrollX, behavior: 'instant' });
+    await frame(); await frame();
+    await new Promise((r) => setTimeout(r, 70));
+  }
+
+  const SNAP_PROPS = ['opacity', 'transform', 'backgroundColor', 'color', 'boxShadow', 'height', 'width', 'backgroundImage', 'filter'];
+  function snap(el) {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    // Where its box sits without its own transform, so "moves into place" isn't mistaken for parallax.
+    const m = cs.transform.match(/matrix\(([^)]+)\)/);
+    const [tx, ty] = m ? m[1].split(',').slice(4).map(Number) : [0, 0];
+    const o = { top: r.top - ty, left: r.left - tx, w: r.width, h: r.height, ty, tx };
+    for (const p of SNAP_PROPS) o[p] = cs[p];
+    return o;
+  }
+
+  function nounFor(el) {
+    const k = kindOf(el);
+    if (k === 'heading') return purposeWords(el, 'heading');
+    if (k === 'text') return purposeWords(el, 'text');
+    if (k === 'button') return t('button ({purpose})', { purpose: purposeWords(el, 'button') });
+    return ROLE_NOUN[k] === 'element' ? (el.tagName === 'IMG' ? t('picture') : t('block')) : t(ROLE_NOUN[k] || tk('block'));
+  }
+
+  /**
+   * How one thing behaved over the samples (positions vs. how far the page scrolled), as facts:
+   * { full, base, at, transform, pinned }. `full` is the sentence; `base` is it without "starting
+   * about …px into the scroll" (`at`, when known); `pinned`: it stays or sticks in place.
+   */
+  function behaviorParts(samples, ys) {
+    const out = [];
+    const add = (base, at = null, flags = {}) => out.push({ full: at == null ? base : t('{fact}, starting about {n}px into the scroll', { fact: base, n: at }), base, at, ...flags });
+    const n = samples.length;
+    const scroll = ys[n - 1] - ys[0];
+    if (Math.abs(scroll) < 50) return out;
+    const moved = samples[n - 1].top - samples[0].top;      // a normal element moves by -scroll
+    const rate = -moved / scroll;                              // 1 = scrolls with the page
+    const dx = samples[n - 1].left - samples[0].left;
+    const pinnedRuns = [];
+    for (let i = 1; i < n; i++) if (Math.abs(samples[i].top - samples[i - 1].top) < 2 && ys[i] - ys[i - 1] > 20) pinnedRuns.push(i);
+    if (pinnedRuns.length === n - 1) add(t('stays in the same place on screen while you scroll'), null, { pinned: true });
+    else if (pinnedRuns.length >= 2) add(t('sticks in place for about {n}px of scrolling, then moves on', { n: r0(pinnedRuns.length * (scroll / (n - 1))) }), null, { pinned: true });
+    else if (rate > 0.05 && rate < 0.92) add(t('moves slower than the page ({n}% of the scroll speed, parallax)', { n: Math.round(rate * 100) }));
+    else if (rate > 1.08) add(t('moves faster than the page ({n}% of the scroll speed)', { n: Math.round(rate * 100) }));
+    if (Math.abs(dx) >= 20) { const v = { a: r0(Math.abs(dx)), b: r0(scroll) }; add(dx < 0 ? t('moves left by {a}px over {b}px of scrolling', v) : t('moves right by {a}px over {b}px of scrolling', v)); }
+    // A reveal: faded/moved out at first, in place at the end.
+    const o0 = Number(samples[0].opacity), o1 = Number(samples[n - 1].opacity);
+    const ty0 = samples[0].ty, ty1 = samples[n - 1].ty, tx0 = samples[0].tx, tx1 = samples[n - 1].tx;
+    const fades = o0 < 0.2 && o1 > 0.8;
+    const slides = Math.abs(ty0 - ty1) >= 4 ? (ty0 > ty1 ? t('moves up {n}px', { n: r0(ty0 - ty1) }) : t('moves down {n}px', { n: r0(ty1 - ty0) })) : Math.abs(tx0 - tx1) >= 4 ? (tx0 > tx1 ? t('slides left {n}px', { n: r0(Math.abs(tx0 - tx1)) }) : t('slides right {n}px', { n: r0(Math.abs(tx0 - tx1)) })) : '';
+    const at = (p) => { const vals = samples.map((s) => s[p]); const i = vals.findIndex((v) => v !== vals[0]); return i > 0 ? ys[i] - ys[0] : 0; };
+    if (fades || slides) {
+      const what = fades && slides ? t('fades in and {slide} into place when you scroll to it', { slide: slides }) : fades ? t('fades in when you scroll to it') : t('{slide} into place when you scroll to it', { slide: slides });
+      add(what, r0(at(fades ? 'opacity' : 'transform')));
+    }
+    for (const p of SNAP_PROPS) {
+      if ((fades && p === 'opacity') || (slides && p === 'transform')) continue;
+      if (p === 'height' || p === 'width') {
+        const a = px(samples[0][p]), b = px(samples[n - 1][p]);
+        if (Math.abs(a - b) >= 6) { const v = { a: r0(a), b: r0(b) }; add(p === 'height' ? t('height goes from {a}px to {b}px', v) : t('width goes from {a}px to {b}px', v)); }
+        continue;
+      }
+      const vals = samples.map((s) => s[p]);
+      const first = vals[0], last = vals[n - 1];
+      if (new Set(vals).size <= 1) continue;
+      const at = ys[vals.findIndex((v) => v !== first)] - ys[0];
+      const word = t({ opacity: tk('opacity'), transform: tk('position/size (transform)'), backgroundColor: tk('background'), color: tk('text color'), boxShadow: tk('shadow'), backgroundImage: tk('background'), filter: tk('filter') }[p]);
+      const show = (v) => (p === 'opacity' ? v : hexify(v));
+      // Colors in motion are said by how they relate, never as values.
+      if (/^(backgroundColor|color|boxShadow|backgroundImage)$/.test(p)) {
+        const rel = colorChangeWords(first, last);
+        if (rel) { add(`${word} ${rel}`, r0(at)); continue; }
+      }
+      add(t('{what} changes from {a} to {b}', { what: word, a: show(first), b: show(last) }), r0(at), { transform: p === 'transform' });
+    }
+    return out;
+  }
+
+  /** Scroll through `ys` positions, snapshotting `els` at each; always scrolls back. */
+  async function sampleScroll(els, ys) {
+    const y0 = scrollY;
+    const samples = els.map(() => []);
+    // Where to put the page back. Aborting (see the panel) puts it back right away, so a person who
+    // moved on and scrolls somewhere else is not yanked back later.
+    globalThis.__plScrollStart = y0;
+    // Each check listens only for its own "stop" (by pick): a late stop for an earlier pick must not
+    // stop this one, and a new check must not keep an old one going.
+    const mine = els[0]?.closest?.('[data-pl-pick]')?.getAttribute('data-pl-pick') || `run${Date.now()}`;
+    globalThis.__plScrollFor = mine;
+    const stopped = () => !!globalThis.__plScrollStops?.has(mine);
+    try {
+      for (const [k, y] of ys.entries()) {
+        if (stopped()) break; // the person moved on: stop and put the page back
+        await settleScroll(y);
+        // At the start, let things that just left the screen finish hiding (reveals that reset).
+        if (k === 0) await new Promise((r) => setTimeout(r, 700));
+        els.forEach((el, i) => samples[i].push(snap(el)));
+      }
+      // Let reveals that just started finish, then take the end state at the same spot.
+      if (!stopped()) {
+        await new Promise((r) => setTimeout(r, 900));
+        els.forEach((el, i) => { if (samples[i].length) samples[i][samples[i].length - 1] = snap(el); });
+      }
+    } finally {
+      if (!stopped()) await settleScroll(y0);
+      if (globalThis.__plScrollFor === mine) { globalThis.__plScrollStart = null; globalThis.__plScrollFor = null; }
+    }
+    return samples;
+  }
+
+  /** One element: does it behave differently when the page scrolls? */
+  async function elementScroll(el) {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    if (max < 100) return { facts: [] };
+    // Scroll from just before it enters the screen until it has passed (at least 600px).
+    const top = el.getBoundingClientRect().top + scrollY, h = el.getBoundingClientRect().height;
+    const from = Math.max(0, Math.min(top - innerHeight * 0.9, max - 600));
+    const to = Math.min(max, Math.max(from + 600, top + h));
+    const ys = [0, 1, 2, 3, 4, 5, 6].map((i) => r0(from + ((to - from) * i) / 6)).filter((y, i, a) => i === 0 || y !== a[i - 1]);
+    const [samples] = await sampleScroll([el], ys);
+    const parts = behaviorParts(samples, ys);
+    const facts = parts.map((f) => f.full);
+    const cs = getComputedStyle(el);
+    if ((cs.position === 'sticky' || cs.position === 'fixed') && !parts.some((f) => f.pinned)) facts.unshift(`position ${cs.position}, top ${cs.top}`);
+    return { facts, ys };
+  }
+
+  /** Is it worth measuring this element's scroll behavior right away? (cheap check) */
+  // Only clear signs: checking scrolls the page, so it must not run for every hover-able card.
+  function scrollHint(el) {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (cs.position === 'sticky' || cs.position === 'fixed') return true;
+      if (n === el && (cs.willChange.includes('transform') || (cs.animationTimeline && cs.animationTimeline !== 'auto'))) return true;
+    }
+    return false;
+  }
+
+  /** Does anything in this section look like it reacts to scrolling? (cheap, no scrolling)
+   *  Sticky/fixed parts, scroll-driven animations, fixed backgrounds, reveal libraries, or parts
+   *  waiting hidden/shifted with a transition (typical scroll reveals). */
+  function areaScrollHint(band) {
+    if (scrollHint(band)) return true;
+    const all = [band, ...band.querySelectorAll('*')].slice(0, 600);
+    for (const n of all) {
+      if (n.hasAttribute('data-aos') || n.hasAttribute('data-scroll') || n.hasAttribute('data-sal') || /\b(reveal|aos-|wow|fade-?in|scroll)/i.test(n.className?.baseVal ?? n.className ?? '')) return true;
+      const cs = getComputedStyle(n);
+      if (cs.position === 'sticky' || cs.position === 'fixed' || cs.backgroundAttachment === 'fixed') return true;
+      if (cs.animationTimeline && cs.animationTimeline !== 'auto') return true;
+      const waiting = parseFloat(cs.opacity) < 0.05 || (cs.transform !== 'none' && /translate|matrix/.test(cs.transform));
+      if (waiting && cs.transitionDuration.split(',').some((d) => parseFloat(d) > 0)) return true;
+    }
+    return false;
+  }
+
+  /** A whole section: scroll through it and describe what happens as you go. */
+  async function sectionScroll(band) {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    const top = band.getBoundingClientRect().top + scrollY;
+    const h = band.getBoundingClientRect().height;
+    // At least 600px of scrolling, so a short sticky header at the very top is still put to the test.
+    const from = Math.max(0, top - innerHeight), to = Math.min(max, Math.max(top + h, from + 600));
+    if (to - from < 80) return { facts: [] };
+    const steps = Math.min(10, Math.max(4, Math.round((to - from) / 250)));
+    const ys = [...Array(steps + 1)].map((_, i) => r0(from + ((to - from) * i) / steps));
+    // The parts worth following: visible boxes down to 3 levels that are big enough to notice.
+    const parts = [];
+    const br = band.getBoundingClientRect();
+    const walk = (el, d) => {
+      for (const k of kidsOf(el)) {
+        const r = k.getBoundingClientRect();
+        if (r.width * r.height >= br.width * br.height * 0.004 || /^(H1|H2|H3|IMG|VIDEO|BUTTON|A)$/.test(k.tagName)) parts.push(k);
+        if (d < 3 && parts.length < 80) walk(k, d + 1);
+      }
+    };
+    walk(band, 0);
+    const els = [band, ...parts.slice(0, 80)];
+    const samples = await sampleScroll(els, ys);
+    const facts = [];
+    const selfParts = behaviorParts(samples[0], ys);
+    const self = selfParts.map((f) => f.full);
+    const bcs = getComputedStyle(band);
+    if ((bcs.position === 'sticky' || bcs.position === 'fixed') && !selfParts.some((f) => f.pinned)) self.unshift(t('stays in the same place on screen while you scroll (position {position}, top {top})', { position: bcs.position, top: bcs.top }));
+    if (self.length) facts.push(t('The section itself: {facts}', { facts: self.join('; ') }));
+    // Report each distinct behavior once, saying which parts do it and in what order.
+    const byBehavior = new Map();
+    els.slice(1).forEach((el, i) => {
+      for (const b of behaviorParts(samples[i + 1], ys)) {
+        if (b.transform && byBehavior.size > 30) continue;
+        const key = b.at != null ? `${b.base},` : b.base;
+        const entry = byBehavior.get(key) || { text: b.base, who: [], at: [] };
+        entry.who.push(nounFor(el));
+        entry.at.push(b.at ?? 0);
+        byBehavior.set(key, entry);
+      }
+    });
+    for (const { text, who, at } of [...byBehavior.values()].slice(0, 12)) {
+      const names = [...new Set(who)];
+      const order = at.length > 1 && new Set(at).size > 1 ? t(', one after another as you scroll') : '';
+      facts.push(`${who.length > 1 ? t('{n} parts ({names})', { n: who.length, names: names.slice(0, 4).join(', ') }) : names[0]}: ${text}${order}`);
+    }
+    return { facts, ys, range: t('measured from {from}px to {to}px of page scroll', { from: r0(from), to: r0(to) }) };
+  }
+
+  // ---------- chosen sections (v7.4): full colors and format of the sections you pick ----------
+
+  /** The section (full-width band) a clicked element belongs to. */
+  function sectionOf(el) {
+    const bands = pageBands();
+    for (let n = el; n && n !== document.body; n = n.parentElement) if (bands.includes(n)) return n;
+    // Not inside a detected band: the widest reasonable box around it.
+    const docW = document.documentElement.clientWidth;
+    let best = el;
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const r = n.getBoundingClientRect();
+      if (r.width >= docW * 0.6 && r.height >= 80) { best = n; if (r.width >= docW * 0.95) break; }
+    }
+    return best;
+  }
+
+  /** `tr`: in the reader's language (the "Section: " prefix stays English, see bandName). */
+  function sectionName(el, tr = false) {
+    const bands = pageBands();
+    const i = bands.indexOf(el);
+    return i >= 0 ? bandName(el, i, bands, tr) : `Section: ${sectionPurpose(el, tr)}`;
+  }
+
+  /** Paint of an element's ::before/::after layers (decorative gradients often live there). */
+  function pseudoPaints(el) {
+    const out = [];
+    for (const which of ['::before', '::after']) {
+      const cs = getComputedStyle(el, which);
+      if (!cs || cs.content === 'none' || cs.content === 'normal' || cs.display === 'none') continue;
+      const p = paintOf(el, cs);
+      if (p.length) out.push(`${p.join(' + ')}${cs.filter !== 'none' ? ` (${cs.filter})` : ''}${cs.opacity !== '1' ? `, opacity ${cs.opacity}` : ''}${cs.mixBlendMode !== 'normal' ? `, blend ${cs.mixBlendMode}` : ''}`);
+    }
+    return out;
+  }
+
+  /** Where something sits inside the section, in words ("top left", "center"…). */
+  /** `tr`: in the reader's language (color lists stay English: prompts.js reads them). */
+  function placeWords(el, band, tr = false) {
+    const b = band.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const x = (r.left + r.width / 2 - b.left) / b.width, y = (r.top + r.height / 2 - b.top) / b.height;
+    const v = y < 0.34 ? 'top' : y > 0.66 ? 'bottom' : 'middle';
+    const h = x < 0.34 ? 'left' : x > 0.66 ? 'right' : 'center';
+    const en = v === 'middle' && h === 'center' ? 'center' : `${v} ${h}`;
+    if (!tr) return en;
+    return t({ center: tk('center'), 'top left': tk('top left'), 'top center': tk('top center'), 'top right': tk('top right'), 'middle left': tk('middle left'), 'middle right': tk('middle right'), 'bottom left': tk('bottom left'), 'bottom center': tk('bottom center'), 'bottom right': tk('bottom right') }[en]);
+  }
+
+  /**
+   * Every color in a section, by what it is used for: background (and what shows through it),
+   * decorations (gradients, glows, ::before/::after layers), text by role, each button style,
+   * cards, borders/dividers, icons and colored shadows.
+   */
+  function sectionColors(band) {
+    const out = { background: [], decorations: [], text: new Map(), buttons: new Map(), cards: new Map(), lines: new Map(), icons: new Map(), shadows: new Map(), badges: new Map() };
+    const own = paintOf(band);
+    if (own.length) out.background.push(own.join(' + '));
+    else {
+      for (let n = band.parentElement; n; n = n.parentElement) { const p = paintOf(n); if (p.length) { out.background.push(`none of its own; shows ${p.join(' + ')} from behind`); break; } }
+      // No fill of its own: say what actually shows through (the page's background), not "browser white".
+      if (!out.background.length) { const seen = seenBgSolid(band); out.background.push(seen ? `none of its own; the page background ${seen} shows through` : 'none (browser white)'); }
+    }
+    // A layer over the section counts only if it is a gradient (a plain one just repeats the background).
+    for (const p of pseudoPaints(band)) if (/gradient\(/.test(p)) out.decorations.push(`layer over the whole section: ${p}`);
+    const br = band.getBoundingClientRect();
+    const all = [...band.querySelectorAll('*')].filter(shown).slice(0, 1500);
+    const seenDeco = new Set();
+    for (const el of all) {
+      const cs = getComputedStyle(el);
+      const kind = kindOf(el, cs);
+      const hasText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+      const tag = el.tagName.toLowerCase();
+      if (kind === 'button') {
+        const fill = paintOf(el, cs).join(' + ') || 'no fill';
+        bump(out.buttons, `${purposeWords(el, 'button')}: ${fill}, text ${textPaint(cs)}${px(cs.borderTopWidth) && normColor(cs.borderTopColor) ? `, border ${normColor(cs.borderTopColor)}` : ''}${cs.boxShadow !== 'none' ? `, shadow ${hexify(cs.boxShadow)}` : ''}`);
+        continue;
+      }
+      if (kind === 'card') bump(out.cards, `${paintOf(el, cs).join(' + ') || 'no fill'}${px(cs.borderTopWidth) && normColor(cs.borderTopColor) ? `, border ${normColor(cs.borderTopColor)}` : ''}${cs.boxShadow !== 'none' ? `, shadow ${hexify(cs.boxShadow)}` : ''}`);
+      else if (kind === 'badge') bump(out.badges, `${paintOf(el, cs).join(' + ')}, text ${textPaint(cs)}`);
+      if (hasText && !el.closest('button, [role=button]')) {
+        const role = kind === 'heading' ? purposeWords(el, 'heading') : /link/.test(kind) ? purposeWords(el, kind) : kind === 'badge' ? null : purposeWords(el, 'text');
+        if (role) bump(out.text, `${role}: ${textPaint(cs)}`, (el.textContent || '').trim().length + 1);
+      }
+      // Decorations: painted things that are not text, buttons or cards (blobs, stripes, overlays).
+      if (!hasText && kind !== 'card' && kind !== 'button' && el.children.length <= 2) {
+        const p = paintOf(el, cs);
+        const r = el.getBoundingClientRect();
+        const big = r.width * r.height >= br.width * br.height * 0.01;
+        // Plain fills are covered by the area shares; here only gradients, blurs and see-through glows.
+        const effect = p.some((x) => /gradient\(/.test(x)) || cs.filter !== 'none' || (+cs.opacity < 1 && +cs.opacity >= 0.15);
+        if (p.length && big && effect && +cs.opacity >= 0.15 && cs.visibility !== 'hidden' && !/^(svg|path|circle|rect)$/.test(tag)) {
+          const d = `${p.join(' + ')}${cs.filter !== 'none' ? ` (${cs.filter})` : ''}${cs.opacity !== '1' ? `, opacity ${cs.opacity}` : ''} — ${r0(r.width)}×${r0(r.height)}, ${placeWords(el, band)}`;
+          if (!seenDeco.has(p.join())) { seenDeco.add(p.join()); out.decorations.push(d); }
+        }
+      }
+      for (const p of pseudoPaints(el)) if (/gradient\(/.test(p) && !seenDeco.has(p)) { seenDeco.add(p); out.decorations.push(`layer on a ${ROLE_NOUN[kind] || 'box'}: ${p}`); }
+      if (px(cs.borderTopWidth) > 0 && kind !== 'card' && kind !== 'button' && cs.borderTopStyle !== 'none') bump(out.lines, normColor(cs.borderTopColor));
+      if (/^(hr)$/.test(tag)) bump(out.lines, normColor(cs.borderTopColor) || normColor(cs.backgroundColor));
+      if (/^(svg)$/.test(tag)) {
+        for (const s of el.querySelectorAll('path, circle, rect, polygon, line, ellipse')) {
+          const sc = getComputedStyle(s);
+          const f = sc.fill.startsWith('url') ? 'gradient fill' : normColor(sc.fill);
+          const st = sc.stroke !== 'none' ? normColor(sc.stroke) : null;
+          if (f) bump(out.icons, f); if (st) bump(out.icons, `${st} outline`);
+        }
+        for (const g of el.querySelectorAll('linearGradient, radialGradient')) bump(out.icons, `${g.tagName.replace('Gradient', ' gradient')}: ${[...g.querySelectorAll('stop')].map((s) => normColor(getComputedStyle(s).stopColor) || s.getAttribute('stop-color')).join(' → ')}`);
+      }
+      if (cs.boxShadow !== 'none' && kind !== 'button' && kind !== 'card') {
+        const colored = (hexify(cs.boxShadow).match(/#[0-9a-f]{6}|rgba\([^)]+\)/gi) || []).filter((c) => !/^rgba\(0,0,0/.test(c) && c !== '#000000');
+        if (colored.length) bump(out.shadows, hexify(cs.boxShadow));
+      }
+    }
+    return out;
+  }
+
+  /**
+   * How much of a section's visible area each fill covers: a fill's box minus the painted boxes on
+   * top of it. Without this a list of colors reads as equals, and an AI may paint the accent everywhere.
+   */
+  function colorShares(band) {
+    const br = band.getBoundingClientRect();
+    const total = br.width * br.height;
+    if (!total) return [];
+    const clipArea = (r, to) => { const w = Math.min(r.right, to.right) - Math.max(r.left, to.left); const h = Math.min(r.bottom, to.bottom) - Math.max(r.top, to.top); return w > 0 && h > 0 ? w * h : 0; };
+    const fillOf = (el, cs) => {
+      if (+cs.opacity < 0.15 || cs.visibility === 'hidden') return null;
+      if (/^(IMG|VIDEO|CANVAS|PICTURE)$/.test(el.tagName) || isVideoFrame(el)) return 'photos and pictures';
+      // Gradient text paints letters, not an area.
+      if (/text/.test(cs.webkitBackgroundClip || cs.backgroundClip || '')) return null;
+      if (cs.backgroundImage.includes('gradient(')) return `gradient ${mini(cs.backgroundImage).slice(0, 90)}`;
+      if (cs.backgroundImage.includes('url(')) return 'photos and pictures';
+      const c = parseColor(cs.backgroundColor);
+      return c && c.a >= 0.5 ? normColor(cs.backgroundColor).replace(/^rgba\((\d+),(\d+),(\d+),[\d.]+\)$/, (m, r, g, b) => '#' + [r, g, b].map((v) => (+v).toString(16).padStart(2, '0')).join('')) : null;
+    };
+    // The base: the section's own fill, or what shows from behind it.
+    let base = fillOf(band, getComputedStyle(band));
+    for (let n = band.parentElement; !base && n; n = n.parentElement) base = fillOf(n, getComputedStyle(n));
+    base = base || '#ffffff';
+    const shares = new Map();
+    const add = (k, a) => { if (a > 0) shares.set(k, (shares.get(k) || 0) + a); };
+    let budget = 1500;
+    // Exposed area of a painted box = its area minus its nearest painted descendants' areas.
+    const walk = (el, rect) => {
+      let covered = 0;
+      for (const k of el.children) {
+        if (--budget < 0) break;
+        if (!shown(k)) continue;
+        const cs = getComputedStyle(k);
+        const f = fillOf(k, cs);
+        const kr = k.getBoundingClientRect();
+        if (f) {
+          const a = clipArea(kr, rect);
+          if (!a) continue;
+          covered += a;
+          const kRect = { left: Math.max(kr.left, rect.left), top: Math.max(kr.top, rect.top), right: Math.min(kr.right, rect.right), bottom: Math.min(kr.bottom, rect.bottom) };
+          add(f, Math.max(0, a - walk(k, kRect)));
+        } else if (k.children.length) covered += walk(k, rect);
+      }
+      return Math.min(covered, clipArea(rect, rect));
+    };
+    const top = walk(band, br);
+    add(base, Math.max(0, total - top));
+    const sum = [...shares.values()].reduce((a, b) => a + b, 0) || 1;
+    return [...shares].map(([fill, a]) => ({ fill, share: a / sum })).filter((x) => x.share >= 0.01).sort((a, b) => b.share - a.share).slice(0, 7);
+  }
+
+  function colorReport(band, indent = '') {
+    const c = sectionColors(band);
+    const L = [];
+    const list = (label, map, n = 8) => { const k = topBy(map, n); if (k.length) L.push(`${indent}${label}:`, ...k.map((x) => `${indent}  - ${x}`)); };
+    L.push(`${indent}Background: ${c.background.join('; ')}`);
+    let sh = [];
+    try {
+      sh = colorShares(band);
+      if (sh.length) {
+        L.push(`${indent}${t('How much of the area each fill covers')} ${t('(keep these proportions; the biggest one is the background):')}`);
+        for (const x of sh) {
+          const strong = x.fill.startsWith('#') && satOf(x.fill) > 0.35 && luminance(x.fill) > 0.06 && luminance(x.fill) < 0.94;
+          const note = x === sh[0] ? ' (the background)' : strong && x.share < 0.12 ? ' (accent: only here, never as a large background)' : '';
+          L.push(`${indent}  - ${x.fill}: ${Math.max(1, Math.round(x.share * 100))}%${note}`);
+        }
+      }
+    } catch (err) { console.debug('[Huescribe] color shares failed', err); }
+    if (c.decorations.length) L.push(`${indent}Gradients, glows and effects (only these; add no others):`, ...c.decorations.slice(0, 8).map((x) => `${indent}  - ${x}`));
+    else if (sh.some((x) => x.fill.startsWith('gradient')) || /gradient\(/.test(c.background.join(' '))) L.push(`${indent}Gradients, glows and effects: only the gradient fills listed above; add none`);
+    else L.push(`${indent}Gradients, glows and effects: none (flat colors only; add none)`);
+    list('Text', c.text, 10);
+    list('Buttons', c.buttons, 6);
+    list('Cards and panels', c.cards, 4);
+    list('Tags', c.badges, 4);
+    list('Lines and borders', c.lines, 4);
+    list('Icons and illustrations', c.icons, 6);
+    list('Colored glows (shadows)', c.shadows, 4);
+    return L.join('\n');
+  }
+
+  /** A one-line gist of a section's layout: "title → 3 cards in a row → button". */
+  function layoutGist(el) {
+    let n = el;
+    for (let i = 0; i < 6; i++) { const k = kidsOf(n); if (k.length === 1 && !LEAF_KINDS.has(kindOf(k[0]))) n = k[0]; else break; }
+    const kids = kidsOf(n);
+    const cs = getComputedStyle(n);
+    const row = cs.display.includes('flex') && !cs.flexDirection.startsWith('column') || (cs.display.includes('grid') && cs.gridTemplateColumns.split(' ').filter(Boolean).length > 1);
+    const word = (k) => {
+      const kc = getComputedStyle(k), kind = kindOf(k, kc);
+      if (kind === 'heading') return purposeWords(k, 'heading');
+      if (kind === 'button') return purposeWords(k, 'button');
+      if (kind === 'image') return t('picture');
+      if (kind === 'text') return purposeWords(k, 'text');
+      const inner = kidsOf(k);
+      if (inner.length >= 2 && inner.every((x) => kindOf(x) === kindOf(inner[0]) && kidsOf(x).length === kidsOf(inner[0]).length)) {
+        const ic = getComputedStyle(k);
+        const cols = ic.display.includes('grid') ? ic.gridTemplateColumns.split(' ').filter(Boolean).length : 0;
+        const noun = ROLE_NOUN[kindOf(inner[0])] || 'item';
+        const how = cols > 1 ? (cols >= inner.length ? t('in a row') : t('in {n} columns', { n: cols })) : ic.display.includes('flex') && !ic.flexDirection.startsWith('column') ? t('in a row') : t('stacked');
+        return t('{n} {things} {how}', { n: inner.length, things: pluralWords(noun === 'element' ? 'blocks' : `${noun}s`), how });
+      }
+      if (inner.every((x) => kindOf(x) === 'button')) return inner.length > 1 ? t('{n} buttons side by side', { n: inner.length }) : t('button');
+      if (inner.length) return t('group ({parts})', { parts: inner.map((x) => (LEAF_KINDS.has(kindOf(x)) ? (kindOf(x) === 'heading' ? t('title') : t(ROLE_NOUN[kindOf(x)])) : t('block'))).join(' + ') });
+      return t('block');
+    };
+    const parts = kids.slice(0, 8).map(word);
+    if (row && kids.length >= 2 && kids.length <= 4) return t('{n} columns side by side: {parts}', { n: kids.length, parts: parts.map((p) => `[${p}]`).join(' ') });
+    return parts.join(' → ');
+  }
+
+  // ---------- color relationships and spacing (v8.4) ----------
+  // A format copied into someone else's colors should keep how the colors relate (this section is
+  // darker than the page, cards are a touch lighter than it, one accent only…), and several formats
+  // copied onto one page need one spacing system. Both are measured here.
+
+  /** rgb()/rgba() or #hex → { r, g, b, a }. */
+  function anyColor(str) {
+    const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(str || '').trim());
+    if (m) { const n = parseInt(m[1], 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: m[2] ? parseInt(m[2], 16) / 255 : 1 }; }
+    return parseColor(String(str || '').trim());
+  }
+  /** Solid color seen through a see-through rgba() over `base` (hex). */
+  function over(color, base) {
+    const c = anyColor(color); const b = anyColor(base || '#ffffff');
+    if (!c || !b) return base;
+    const a = c.a ?? 1;
+    return '#' + ['r', 'g', 'b'].map((k) => Math.round(c[k] * a + b[k] * (1 - a)).toString(16).padStart(2, '0')).join('');
+  }
+  const satOf = (hex) => {
+    const c = anyColor(hex); if (!c) return 0;
+    const mx = Math.max(c.r, c.g, c.b) / 255, mn = Math.min(c.r, c.g, c.b) / 255, l = (mx + mn) / 2;
+    return mx === mn ? 0 : (mx - mn) / (l > 0.5 ? 2 - mx - mn : mx + mn);
+  };
+  /** The background you see on an element: its own fill (gradients averaged), or what shows through. */
+  function seenBg(el) {
+    const cs = getComputedStyle(el);
+    const behind = el.parentElement ? seenBgSolid(el.parentElement) : '#ffffff';
+    const stops = (cs.backgroundImage.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b/gi) || []).map((x) => over(normColor(x) || x, behind));
+    if (cs.backgroundImage.includes('gradient') && stops.length) return { hex: stops[0], stops };
+    const own = normColor(cs.backgroundColor);
+    return { hex: own ? (own.startsWith('rgba') ? over(own, behind) : own) : behind, stops: [] };
+  }
+  function seenBgSolid(el) {
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      const g = cs.backgroundImage.includes('gradient') ? (cs.backgroundImage.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b/i) || [])[0] : null;
+      if (g) return normColor(g)?.startsWith('#') ? normColor(g) : over(normColor(g), '#ffffff');
+      const c = normColor(cs.backgroundColor);
+      if (c && !c.startsWith('rgba')) return c;
+      if (c) return over(c, n.parentElement ? seenBgSolid(n.parentElement) : '#ffffff');
+    }
+    return '#ffffff';
+  }
+  const meanLum = (b) => (b.stops.length ? b.stops.reduce((t, x) => t + luminance(x), 0) / b.stops.length : luminance(b.hex));
+  /** "much darker than", "a bit lighter than", "the same as" */
+  function relWord(a, b) {
+    const d = a - b;
+    if (Math.abs(d) < 0.035) return t('the same as');
+    const dark = d < 0;
+    if (Math.abs(d) > 0.35) return dark ? t('much darker than') : t('much lighter than');
+    if (Math.abs(d) < 0.1) return dark ? t('a bit darker than') : t('a bit lighter than');
+    return dark ? t('darker than') : t('lighter than');
+  }
+  /** The visible block before / after a section (walking up past wrappers that have nothing else in them). */
+  function neighbor(el, dir) {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      let s = dir < 0 ? n.previousElementSibling : n.nextElementSibling;
+      while (s && (!shown(s) || s.getBoundingClientRect().height < 40)) s = dir < 0 ? s.previousElementSibling : s.nextElementSibling;
+      if (s) return s;
+    }
+    return null;
+  }
+
+  /** How the colors of a part relate, in words that still hold in someone else's colors. */
+  function colorRelations(el) {
+    const out = [];
+    const me = seenBg(el);
+    const L = meanLum(me);
+    out.push(`- ${L < 0.4 ? t('A dark part: light text on a dark background') : t('A light part: dark text on a light background')}`);
+    // The page's usual background: what covers most of the page (sections usually paint their own).
+    const tally = new Map();
+    try { for (const b of pageBands()) { const r = b.getBoundingClientRect(); bump(tally, meanLum(seenBg(b)).toFixed(2), r.width * r.height); } } catch { /* fall back below */ }
+    const usual = tally.size ? Number(topBy(tally, 1)[0]) : luminance(seenBgSolid(document.body));
+    if (el !== document.body && el !== document.documentElement) out.push(`- ${t("Its background is {rel} the page's usual background", { rel: relWord(L, usual) })}`);
+    const above = neighbor(el, -1), below = neighbor(el, 1);
+    const near = [above && t('{rel} the part above it', { rel: relWord(L, meanLum(seenBg(above))) }), below && t('{rel} the part below it', { rel: relWord(L, meanLum(seenBg(below))) })].filter(Boolean);
+    if (near.length) out.push(`- ${t('Compared with its neighbors: {list}', { list: near.length > 1 ? t('{a}, and {b}', { a: near[0], b: near[1] }) : near[0] })}`);
+    if (me.stops.length > 1) {
+      const a = luminance(me.stops[0]), b = luminance(me.stops[me.stops.length - 1]);
+      if (Math.abs(a - b) >= 0.035) out.push(`- ${a > b ? t('Its background fades, getting darker toward the end of the gradient') : t('Its background fades, getting lighter toward the end of the gradient')}`);
+    }
+    const all = [...el.querySelectorAll('*')].filter(shown).slice(0, 500);
+    const card = all.find((e) => kindOf(e) === 'card');
+    if (card) {
+      const cb = seenBg(card); const cs = getComputedStyle(card);
+      const edge = px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' ? t(', edged with a thin border') : cs.boxShadow !== 'none' ? t(', lifted by a shadow') : '';
+      out.push(`- ${t('Cards are {rel} the background behind them{edge}', { rel: relWord(meanLum(cb), L), edge })}`);
+    }
+    const head = all.find((e) => kindOf(e) === 'heading');
+    // Running text: the color most of the longer copy uses (not text inside a button or on a picture).
+    const body = (() => {
+      const byColor = new Map();
+      for (const e of all) {
+        if (kindOf(e) !== 'text' || ownText(e).length <= 20 || e.closest('button, a, [role=button]')) continue;
+        const c = normColor(getComputedStyle(e).color);
+        if (!c) continue;
+        const v = byColor.get(c) || { n: 0, el: e }; v.n += ownText(e).length; byColor.set(c, v);
+      }
+      return [...byColor.values()].sort((a, b) => b.n - a.n)[0]?.el || null;
+    })();
+    if (head && body) {
+      const bgL = L;
+      const hc = Math.abs(luminance(normColor(getComputedStyle(head).color) || '#000000') - bgL);
+      const tc = Math.abs(luminance(normColor(getComputedStyle(body).color) || '#000000') - bgL);
+      if (hc - tc > 0.12) out.push(`- ${t('Headings stand out the most; running text is softer (muted)')}`);
+      else if (Math.abs(hc - tc) <= 0.12) out.push(`- ${t('Headings and running text have about the same strength')}`);
+    }
+    const accents = new Map();
+    for (const e of all) {
+      const k = kindOf(e); const cs = getComputedStyle(e);
+      for (const c of [k === 'button' || k === 'badge' || /link/.test(k) ? normColor(cs.backgroundColor) : null, /^(link|nav link|button|heading|text)$/.test(k) ? normColor(cs.color) : null, normColor(cs.borderTopColor), e.tagName === 'svg' || e.closest?.('svg') ? normColor(cs.fill) || normColor(cs.stroke) : null]) {
+        if (c && c.startsWith('#') && satOf(c) > 0.35 && luminance(c) > 0.08 && luminance(c) < 0.92) accents.set(c, (accents.get(c) || 0) + 1);
+      }
+    }
+    // Near-identical shades (same hue family, close lightness) are one accent, counted by use.
+    const clusters = [];
+    for (const [c, n] of [...accents].sort((a, b) => b[1] - a[1])) {
+      const h = hslOf(c);
+      const hit = clusters.find((k) => { const d = Math.abs(((k.h.h - h.h + 540) % 360) - 180); return d < 25 && Math.abs(k.h.l - h.l) < 0.18; });
+      if (hit) hit.n += n; else clusters.push({ c, h, n });
+    }
+    accents.clear();
+    for (const k of clusters) accents.set(k.c, k.n);
+    // How many accents, not which: the colors themselves belong to a color scheme, not a format.
+    if (accents.size === 1) out.push(`- ${t('One accent color, used sparingly; everything else is neutral')}`);
+    else if (accents.size > 1) out.push(`- ${tn(accents.size, '{n} accent color; everything else is neutral', '{n} accent colors; everything else is neutral')}`);
+    else out.push(`- ${t('No accent color: only neutrals')}`);
+    try { out.push(...paletteFeel(el, all, accents, head, body)); } catch (err) { console.debug('[Huescribe] palette feel failed', err); }
+    return out;
+  }
+
+  /** The resting value of each color property a state changes, so the prompt can say "darker than at rest". */
+  function restColorsOf(el, css) {
+    const out = {};
+    const cs = getComputedStyle(el);
+    for (const m of String(css || '').matchAll(/([a-z-]+)\s*:\s*([^;]+)/gi)) {
+      const prop = m[1].toLowerCase();
+      if (!/#|rgb|hsl/i.test(m[2])) continue;
+      const v = cs.getPropertyValue(prop);
+      const c = (v.match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b/i) || [])[0];
+      if (c) out[prop] = c;
+    }
+    return out;
+  }
+
+  /** How a color changes, in words: "fills in from see-through to a dark neutral", "gets about 20% darker". */
+  function colorChangeWords(from, to) {
+    const pick = (v) => (String(v).match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}\b/i) || [])[0];
+    const a = anyColor(pick(from) || ''), b = anyColor(pick(to) || '');
+    const clear = (c) => !c || c.a < 0.05;
+    const tone = (c) => {
+      const hex = `#${[c.r, c.g, c.b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+      const h = hslOf(hex);
+      const L = Math.round(h.l * 100);
+      const page = seenBgSolid(document.body);
+      const same = page && Math.abs(luminance(page) - luminance(hex)) < 0.02 && (hslOf(page)?.s || 0) - h.s < 0.1 ? t(', the same as the page background') : '';
+      if (h.s >= 0.3 && h.l > 0.12 && h.l < 0.9) {
+        const v = { warmth: t(warmth(h.h)), hue: t(hueName(h.h)), l: L, same };
+        return h.s > 0.7 ? t('the accent color (a vivid {warmth} {hue}, lightness {l}%){same}', v) : t('the accent color (a clear {warmth} {hue}, lightness {l}%){same}', v);
+      }
+      const v = { l: L, same, warmth: t(warmth(h.h)) };
+      if (h.l >= 0.94) return t('a near-white (lightness {l}%){same}', v);
+      if (h.l <= 0.12) return t('a near-black (lightness {l}%){same}', v);
+      if (h.s >= 0.05) return h.l > 0.5 ? t('a light {warmth} neutral (lightness {l}%){same}', v) : t('a dark {warmth} neutral (lightness {l}%){same}', v);
+      return h.l > 0.5 ? t('a light neutral (lightness {l}%){same}', v) : t('a dark neutral (lightness {l}%){same}', v);
+    };
+    if (clear(a) && clear(b)) return '';
+    if (clear(a)) return t('fills in, from see-through to {color}', { color: tone(b) });
+    if (clear(b)) return t('fades away, from {color} to see-through', { color: tone(a) });
+    const ha = hslOf(`#${[a.r, a.g, a.b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`);
+    const hb = hslOf(`#${[b.r, b.g, b.b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`);
+    if (tone(a) !== tone(b)) return t('changes from {a} to {b}', { a: tone(a), b: tone(b) });
+    const dl = hb.l - ha.l;
+    if (Math.abs(dl) < 0.03) return t('shifts slightly in color');
+    return dl < 0 ? t('gets about {n}% darker', { n: Math.round(Math.abs(dl) * 100) }) : t('gets about {n}% lighter', { n: Math.round(Math.abs(dl) * 100) });
+  }
+
+  /** Hue (0–360), saturation and lightness (0–1) of a color. */
+  function hslOf(color) {
+    const c = anyColor(color); if (!c) return null;
+    const r = c.r / 255, g = c.g / 255, b = c.b / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (!d) return { h: 0, s: 0, l };
+    const s = d / (l > 0.5 ? 2 - mx - mn : mx + mn);
+    const h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+    return { h, s, l };
+  }
+  /** WCAG contrast ratio between two solid colors. */
+  function contrastRatio(a, b) {
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const rel = (x) => { const c = anyColor(x); return c ? 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b) : 1; };
+    const [hi, lo] = [rel(a), rel(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  // English words (warmth is compared): t(hueName(h)) / t(warmth(h)) where they are written out.
+  const hueName = (h) => (h < 15 || h >= 345 ? tk('red') : h < 45 ? tk('orange') : h < 70 ? tk('yellow') : h < 160 ? tk('green') : h < 200 ? tk('teal') : h < 255 ? tk('blue') : h < 290 ? tk('violet') : tk('pink'));
+  const warmth = (h) => (h < 70 || h >= 330 ? tk('warm') : h >= 170 && h < 270 ? tk('cool') : tk('neutral-leaning'));
+
+  /**
+   * How the palette feels, in words and ratios that survive a change of colors: tint of the neutrals,
+   * softness and contrast of the text, how the accent sits against the rest, how vivid it all is.
+   * These keep the look when the AI uses other (or slightly shifted) colors.
+   */
+  function paletteFeel(el, all, accents, head, body) {
+    const out = [];
+    const bg = seenBgSolid(el);
+    const b = hslOf(bg);
+    if (!b) return out;
+    if (b.s < 0.35) {
+      const tint = b.s < 0.05 || b.l > 0.985 || b.l < 0.02 ? t('pure grays (no tint)')
+        : warmth(b.h) === 'warm' ? t('warm-tinted (cream, sand or beige), not pure gray')
+        : warmth(b.h) === 'cool' ? t('cool-tinted (slightly blue or slate), not pure gray') : t('slightly {hue}-tinted, not pure gray', { hue: t(hueName(b.h)) });
+      out.push(`- ${t('Neutrals are {tint}', { tint })}`);
+    }
+    // Each text against the background right behind IT (a card, a button), not the section's.
+    const behind = (e) => seenBgSolid(e) || bg;
+    const solid = (e) => { const c = normColor(getComputedStyle(e).color); return c ? (c.startsWith('#') ? c : over(c, behind(e))) : null; };
+    const hc = head && solid(head), tc = body && solid(body);
+    if (hc || tc) {
+      const parts = [hc && t('headings {ratio}:1', { ratio: contrastRatio(hc, behind(head)).toFixed(1) }), tc && t('body text {ratio}:1', { ratio: contrastRatio(tc, behind(body)).toFixed(1) })].filter(Boolean);
+      out.push(`- ${t('Text contrast against the background: {list} (keep about these; never lower than 4.5:1 for body text)', { list: parts.join(', ') })}`);
+      const tx = hslOf(tc || hc);
+      if (tx) {
+        const dark = b.l > 0.5;
+        const pure = dark ? tx.l < 0.03 : tx.l > 0.97;
+        const color = pure ? (dark ? t('pure black') : t('pure white')) : (dark ? t('a soft near-black') : t('a soft off-white'));
+        out.push(`- ${!pure && tx.s > 0.08 ? t('Text is {color}, tinted {warmth} like the neutrals', { color, warmth: t(warmth(tx.h)) }) : t('Text is {color}', { color })}`);
+      }
+    }
+    const top = [...accents].sort((x, y) => y[1] - x[1])[0]?.[0];
+    const a = top && hslOf(top);
+    if (a) {
+      const vivid = a.s > 0.7 && a.l > 0.3 && a.l < 0.7 ? t('vivid') : a.s < 0.45 ? t('muted, dusty') : t('clear but not neon');
+      let rel = '';
+      if (b.s >= 0.05) {
+        const d = Math.abs(((a.h - b.h + 540) % 360) - 180);
+        rel = d < 40 ? t(', in the same color family as the background tint') : d > 140 ? t(', opposite the background tint (complementary)') : t(', {a} against {b} neutrals', { a: t(warmth(a.h)), b: t(warmth(b.h)) });
+      } else rel = t(' on plain neutrals');
+      out.push(`- ${t('The accent is a {vivid} {warmth} {hue}{rel}; its contrast with the background is {ratio}:1', { vivid, warmth: t(warmth(a.h)), hue: t(hueName(a.h)), rel, ratio: contrastRatio(top, bg).toFixed(1) })}`);
+    }
+    // How colorful the whole thing is: the share of strong colors among everything painted.
+    let strong = 0, n = 0;
+    for (const e of all.slice(0, 300)) {
+      const c = normColor(getComputedStyle(e).backgroundColor);
+      if (!c || !c.startsWith('#')) continue;
+      n++; if (satOf(c) > 0.35 && luminance(c) > 0.08 && luminance(c) < 0.92) strong++;
+    }
+    if (n >= 3) out.push(`- ${t('Overall: {feel}', { feel: strong / n < 0.1 ? t('calm and mostly neutral; color is rare and so it stands out') : strong / n < 0.35 ? t('mostly neutral with a few colored areas') : t('colorful: many areas are filled with color') })}`);
+    return out;
+  }
+
+  /** One spacing line for a part, so several formats copied onto one page can share one spacing system. */
+  function spacingFacts(band) {
+    const br = band.getBoundingClientRect();
+    const blocks = [];
+    const word = (k, kind) => {
+      if (kind === 'card') return 'cards';
+      if (kind === 'heading') return 'title';
+      if (kind === 'badge' || purposeOf(k, kind) === 'small label above the title') return 'label';
+      if (kind === 'button' || kind === 'link') return 'buttons';
+      if (kind === 'image') return 'picture';
+      if (kind === 'input') return 'form';
+      if (kind === 'nav link') return 'links';
+      return 'text';
+    };
+    const walk = (el) => {
+      for (const k of kidsOf(el)) {
+        if (!shown(k) || blocks.length >= 40) continue;
+        const kind = kindOf(k);
+        const kr = k.getBoundingClientRect();
+        // Slides parked off to the side (carousels) are not part of the visible layout.
+        if (kr.right <= br.left + 1 || kr.left >= br.right - 1) continue;
+        if (kind === 'card' || LEAF_KINDS.has(kind)) blocks.push({ el: k, r: kr, w: word(k, kind) });
+        else walk(k);
+      }
+    };
+    walk(band);
+    if (!blocks.length) return '';
+    blocks.sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left);
+    // Things side by side form one row; rows are stacked.
+    const rows = [];
+    for (const b of blocks) {
+      const row = rows[rows.length - 1];
+      if (row && b.r.top < row.bottom - 4) { row.bottom = Math.max(row.bottom, b.r.bottom); row.left = Math.min(row.left, b.r.left); row.right = Math.max(row.right, b.r.right); row.items.push(b); }
+      else rows.push({ top: b.r.top, bottom: b.r.bottom, left: b.r.left, right: b.r.right, w: b.w, items: [b] });
+    }
+    const facts = [];
+    const cs = getComputedStyle(band);
+    const left = Math.min(...rows.map((r) => r.left)), right = Math.max(...rows.map((r) => r.right));
+    // Side padding: the section's own padding (or its inner box's); content width: the widest thing in it.
+    let sides = px(cs.paddingLeft);
+    for (let n = band, i = 0; !sides && n && i < 4; i++) { n = kidsOf(n)[0]; if (n) sides = px(getComputedStyle(n).paddingLeft); }
+    if (!sides) sides = Math.max(0, r0(left - br.left));
+    facts.push(`sides ${r0(sides)}px`);
+    // A capped box that holds several of the blocks is the content width; a capped headline is just a text measure.
+    const capped = [band, ...band.querySelectorAll('*')].slice(0, 300).filter((n) => { const c = getComputedStyle(n).maxWidth; return c !== 'none' && px(c) > 300 && px(c) < br.width && blocks.filter((b) => n.contains(b.el)).length >= 2; })
+      .sort((a, b) => px(getComputedStyle(b).maxWidth) - px(getComputedStyle(a).maxWidth))[0];
+    facts.push(capped ? `content width ${r0(px(getComputedStyle(capped).maxWidth))}px` : `content ${r0(Math.min(right - left, br.width))}px wide`);
+    if (rows.length) facts.push(`top ${r0(Math.max(0, rows[0].top - br.top))}px`, `bottom ${r0(Math.max(0, br.bottom - rows[rows.length - 1].bottom))}px`);
+    const pairs = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const gap = r0(rows[i].top - rows[i - 1].bottom);
+      if (gap < 0 || gap > 400) continue;
+      const key = `${rows[i - 1].w} → ${rows[i].w}`;
+      if (!pairs.has(key)) pairs.set(key, gap);
+    }
+    for (const [k, g] of [...pairs].slice(0, 6)) facts.push(`${k} ${g}px`);
+    const cardRow = rows.find((r) => r.items.length > 1 && r.items.every((x) => x.w === 'cards'));
+    if (cardRow) facts.push(`between cards ${r0(cardRow.items[1].r.left - cardRow.items[0].r.right)}px`);
+    // prompts.js reads this line by t('Spacing:'); the parts after it stay English (it parses them).
+    return `${t('Spacing:')} ${facts.join(' · ')}`;
+  }
+
+  // ---------- font scheme of a section (v8.8) ----------
+  const FONT_ROLE_ORDER = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'big numbers', 'body text', 'small text', 'labels', 'buttons', 'menu links', 'links', 'form fields'];
+  const FONT_ROLE_NAME = { h1: tk('Main heading (h1)'), h2: tk('Section titles (h2)'), h3: tk('Smaller titles (h3)'), h4: tk('Small titles (h4)'), h5: tk('Small titles (h5)'), h6: tk('Small titles (h6)'), 'big numbers': tk('Big numbers'), 'body text': tk('Body text'), 'small text': tk('Small text'), labels: tk('Labels (small, above titles)'), buttons: tk('Buttons'), 'menu links': tk('Menu links'), links: tk('Links'), 'form fields': tk('Form fields') };
+  // The block headers below ("Families", "By role", "How they relate") stay English: prompts.js finds them.
+
+  /**
+   * Every kind of text in the given parts, by role (headings, body, labels, buttons…), with the
+   * family, size, weight, line height and letter spacing each one uses, and how they relate
+   * (the scale against the body text, weight contrast, tight vs relaxed lines).
+   */
+  async function fontScheme(roots) {
+    const sheets = await loadRules();
+    const seen = new Set();
+    const rows = [];
+    for (const root of roots) {
+      for (const el of [root, ...root.querySelectorAll('*')].slice(0, 1500)) {
+        if (seen.has(el) || SKIP_TAGS.has(el.tagName) || el.closest('#__huescribe-root')) continue;
+        seen.add(el);
+        const cs = getComputedStyle(el);
+        if (!isVisible(el, cs)) continue;
+        const kind = kindOf(el, cs);
+        const text = kind === 'input' ? (el.placeholder || el.value || '') : ownText(el);
+        if (text.trim().length < 2) continue;
+        rows.push({ el, cs, kind, text: text.trim(), spec: textSpec(cs) });
+      }
+    }
+    if (!rows.length) return '';
+    // Body text first: the most-used style of running text sets the reference size.
+    const runs = new Map();
+    for (const r of rows) if (r.kind === 'text' || r.kind === 'container' || r.kind === 'card' || r.kind === 'section') tally(runs, JSON.stringify(r.spec), r.text.length);
+    const body = runs.size ? JSON.parse(top(runs, 1)[0].value) : rows[0].spec;
+    const roleOf = (r) => {
+      const tag = r.el.tagName.toLowerCase();
+      if (/^h[1-6]$/.test(tag) || r.kind === 'heading') return /^h[1-6]$/.test(tag) ? tag : r.spec.size >= body.size * 2 ? 'h2' : 'h3';
+      if (r.kind === 'button') return 'buttons';
+      if (r.kind === 'nav link') return 'menu links';
+      if (r.kind === 'input') return 'form fields';
+      if (r.kind === 'link') return 'links';
+      if (/^[\d\s.,+%$€£kKmM×x/:-]+$/.test(r.text) && r.spec.size >= Math.max(28, body.size * 1.8)) return 'big numbers';
+      if (r.kind === 'badge' || ((r.spec.transform === 'uppercase' || r.spec.tracking > 0.04) && r.spec.size <= body.size)) return 'labels';
+      if (r.spec.size < body.size - 0.5) return 'small text';
+      return 'body text';
+    };
+    const byRole = new Map();
+    for (const r of rows) {
+      const role = roleOf(r);
+      if (!byRole.has(role)) byRole.set(role, { specs: new Map(), n: 0 });
+      const g = byRole.get(role);
+      tally(g.specs, JSON.stringify(r.spec), Math.max(1, r.text.length));
+      g.n++;
+    }
+    const roles = FONT_ROLE_ORDER.filter((k) => byRole.has(k)).map((k) => ({ role: k, n: byRole.get(k).n, spec: JSON.parse(top(byRole.get(k).specs, 1)[0].value) }));
+    const fams = new Map();
+    for (const r of roles) { if (!fams.has(r.spec.family)) fams.set(r.spec.family, []); fams.get(r.spec.family).push(t(FONT_ROLE_NAME[r.role]).replace(/ \(.*\)$/, '').toLowerCase()); }
+    const out = [];
+    out.push(t('Families ({n}):', { n: fams.size }));
+    for (const [fam, used] of fams) {
+      const src = familySource(fam, sheets);
+      out.push(`- ${fam}${src ? `, ${t(src)}` : ''}: ${used.join(', ')}`);
+    }
+    out.push('', 'By role:');
+    for (const r of roles) {
+      const sp = r.spec;
+      const extra = [sp.tracking ? t('letter spacing {n}em', { n: sp.tracking }) : '', sp.transform === 'uppercase' ? t('all caps') : sp.transform ? sp.transform : '', sp.italic ? t('italic') : ''].filter(Boolean).join(', ');
+      out.push(`- ${t('{role}: {family} {size}px, weight {weight}, line height {lh}', { role: t(FONT_ROLE_NAME[r.role]), family: sp.family, size: sp.size, weight: sp.weight, lh: sp.lineHeight })}${extra ? `, ${extra}` : ''}${r.n > 1 ? ` (${r.n}×)` : ''}`);
+    }
+    const rel = [];
+    const big = roles.filter((r) => r.role !== 'body text' && r.spec.size > body.size + 0.5);
+    if (big.length || roles.some((r) => r.role === 'small text' || r.role === 'labels')) {
+      rel.push(`- ${t('Scale against the body text ({size}px): {list}', { size: body.size, list: roles.filter((r) => r.role !== 'body text').map((r) => `${t(FONT_ROLE_NAME[r.role]).replace(/ \(.*\)$/, '').toLowerCase()} ${round(r.spec.size / body.size, 2)}×`).join(', ') })}`);
+    }
+    const heads = roles.filter((r) => /^h[1-6]$/.test(r.role));
+    if (heads.length) {
+      const hw = Math.max(...heads.map((r) => +r.spec.weight)), bw = +body.weight;
+      rel.push(`- ${t('Weight: headings {h}, body {b} ({how})', { h: hw, b: bw, how: hw - bw >= 300 ? t('strong contrast') : hw - bw >= 100 ? t('some contrast') : t('about the same weight') })}`);
+      const hl = heads[0].spec.lineHeight, bl = body.lineHeight;
+      if (hl !== 'normal' && bl !== 'normal') rel.push(`- ${t('Line height: headings {h} ({hl}), body {b} ({bl})', { h: hl < 1.2 ? t('tight') : t('normal'), hl, b: bl >= 1.5 ? t('relaxed') : t('normal'), bl })}`);
+      const ht = heads[0].spec.tracking;
+      if (ht < -0.005) rel.push(`- ${t('Headings are set tighter than normal (letter spacing {n}em)', { n: ht })}`);
+    }
+    if (fams.size === 1) rel.push(`- ${t('One family for everything; the roles differ only by size, weight and spacing')}`);
+    if (rel.length) out.push('', `${t('How they relate')} ${t('(keep this even with other fonts):')}`, ...rel);
+    return out.join('\n');
+  }
+
+  /**
+   * A screen portion dragged out by hand, as what it really covers:
+   *  - one thing (an element that fills the area),
+   *  - a span of whole sections (the area runs over two or more of the page's sections),
+   *  - a part of one section (some of the things side by side or stacked in it, not all).
+   */
+  function areaSelection(region) {
+    const bands = pageBands();
+    const vis = (b) => { const r = b.getBoundingClientRect(); const o = Math.min(r.bottom, region.bottom) - Math.max(r.top, region.top); return { r, o }; };
+    const spanned = bands.filter((b) => { const { r, o } = vis(b); return o > 0 && (o / Math.max(1, r.height) >= 0.5 || o >= 200); });
+    if (spanned.length >= 2) return { kind: 'span', els: spanned };
+    // From the smallest box holding the whole area, go down while the area holds just one child;
+    // stop where it holds several: all of them = that box, some of them = a part of it.
+    const cover = (k) => {
+      const r = k.getBoundingClientRect();
+      const w = Math.min(r.right, region.right) - Math.max(r.left, region.left);
+      const h = Math.min(r.bottom, region.bottom) - Math.max(r.top, region.top);
+      return w > 0 && h > 0 ? (w * h) / Math.max(1, r.width * r.height) : 0;
+    };
+    const inside = (k) => cover(k) >= 0.5;
+    let n = regionRoot(region);
+    for (let depth = 0; n && depth < 12; depth++) {
+      const kids = [...n.children].filter((k) => !SKIP_TAGS.has(k.tagName) && !k.closest('#__huescribe-root') && isVisible(k, getComputedStyle(k)) && k.getBoundingClientRect().height > 0);
+      const hit = kids.filter(inside);
+      const words = hit.every((k) => getComputedStyle(k).display.startsWith('inline') && !k.children.length);
+      if (hit.length >= 2) return hit.length === kids.length || words ? { kind: 'one', el: n } : { kind: 'part', parent: n, els: hit };
+      // One child holds the area: the area is all of it, or part of it (then look inside it).
+      if (hit.length === 1) { if (cover(hit[0]) >= 0.9) return { kind: 'one', el: hit[0] }; n = hit[0]; continue; }
+      break;
+    }
+    return { kind: 'one', el: n || document.body };
+  }
+
+  /** A short name for a neighbor: a section's name, or what a part inside a section is for. */
+  function neighborName(n) {
+    const bands = pageBands();
+    const i = bands.indexOf(n);
+    if (i >= 0) return bandName(n, i, bands, true).replace(/^Section: /, '');
+    const kind = kindOf(n);
+    if (kind === 'heading' || kind === 'text' || kind === 'button' || kind === 'link') return purposeWords(n, kind);
+    if (kind === 'image') return t('a picture');
+    const noun = ROLE_NOUN[kind];
+    const inner = n.querySelector?.('h1, h2, h3, h4');
+    if (inner) return t('the {noun} with the {purpose}', { noun: noun && noun !== 'element' ? t(noun) : t('part'), purpose: purposeWords(inner, 'heading') });
+    return noun && noun !== 'element' ? t('a {noun}', { noun: t(noun) }) : t('another part');
+  }
+
+  /**
+   * Where it sits relative to everything around it, so the copy goes in the same relation:
+   * for a section, its place in the page order, what is directly above and below, full width or a
+   * centered column, overlaps or gaps, sticky; for a part inside a section, where in the section
+   * and what comes just before and after it.
+   */
+  function positionFacts(first, last = first) {
+    const out = [];
+    const bands = pageBands();
+    const docW = document.documentElement.clientWidth;
+    const r = first.getBoundingClientRect(), rl = last.getBoundingClientRect();
+    const i = bands.indexOf(first), j = bands.indexOf(last);
+    if (i >= 0) {
+      out.push(t('Place in the page: {place}', { place: i === 0 ? t('the first part at the top') : j === bands.length - 1 ? t('the last part at the bottom') : t('part {n} of {total} from the top', { n: i + 1, total: bands.length }) }));
+      if (i > 0) {
+        const prev = bands[i - 1], pr = prev.getBoundingClientRect();
+        // A sticky or fixed part above is measured where it is stuck, so no gap is worked out from it.
+        const pinned = /sticky|fixed/.test(getComputedStyle(prev).position) || /sticky|fixed/.test(getComputedStyle(first).position);
+        const gap = Math.round(r.top - pr.bottom);
+        out.push(t('Directly above it: {name}{gap}', { name: neighborName(prev), gap: pinned ? '' : gap < -4 ? t('; it overlaps that part by {n}px (pulled up over it)', { n: -gap }) : gap > 4 ? t('; {n}px of empty page between them', { n: gap }) : t(' (they touch, no gap)') }));
+      }
+      if (j >= 0 && j < bands.length - 1) out.push(t('Directly below it: {name}', { name: neighborName(bands[j + 1]) }));
+    } else {
+      const band = sectionOf(first);
+      if (band && band !== first) {
+        out.push(t('Inside the {name} section, at the {place}', { name: neighborName(band), place: placeWords(first, band, true) }));
+        const sib = (el, dir) => { let n = el[dir]; while (n && !(n instanceof Element && n.getBoundingClientRect().height > 1)) n = n[dir]; return n; };
+        const before = sib(first, 'previousElementSibling'), after = sib(last, 'nextElementSibling');
+        if (before) out.push(t('Just before it: {name}', { name: neighborName(before) }));
+        if (after) out.push(t('Just after it: {name}', { name: neighborName(after) }));
+        const br = band.getBoundingClientRect();
+        if (Math.abs((r.left + r.width / 2) - (br.left + br.width / 2)) < 8 && r.width < br.width * 0.9) out.push(t('Centered in the section'));
+      }
+    }
+    const w = Math.max(rl.right, r.right) - Math.min(r.left, rl.left);
+    if (w >= docW * 0.97) out.push(t('Width: edge to edge (full width of the page)'));
+    else out.push(t('Width: {w}px of the {page}px page, {where}', { w: Math.round(w), page: docW, where: Math.abs((r.left + w / 2) - docW / 2) < 8 ? t('centered') : r.left < docW * 0.2 ? t('on the left') : t('on the right') }));
+    const cs = getComputedStyle(first);
+    if (cs.position === 'sticky' || cs.position === 'fixed') out.push(cs.position === 'fixed' ? t('Stays fixed on screen while the page scrolls, over the parts below') : t('Stays stuck to the top while the page scrolls, over the parts below'));
+    else if (+cs.zIndex > 0 && r.top < 0) out.push(t('Sits on top of the content around it'));
+    // prompts.js finds this block by t('Position on the page'): keep that key on its own.
+    return `${t('Position on the page')} ${t('(put it in the same relation to my parts):')}\n${out.map((l) => `- ${l}`).join('\n')}`;
+  }
+
+  /** The report for a grouped portion (a span of sections, or part of one section). */
+  async function portionReportGroup(els, parts, kind) {
+    // English names for the "Part N, name:" lines (prompts.js reads them); the reader's language elsewhere.
+    const namesEn = els.map((e) => sectionName(e).replace(/^Section: /, ''));
+    const names = els.map((e) => sectionName(e, true).replace(/^Section: /, ''));
+    const host = kind === 'part' ? sectionName(sectionOf(els[0].parentElement || els[0]), true).replace(/^Section: /, '') : '';
+    // " (together)" stays English: panel.js strips it.
+    const name = kind === 'span' ? `${names.join(' + ')} (together)` : tn(els.length, 'part of {host}: {n} piece', 'part of {host}: {n} pieces', { host });
+    const piece = (i) => t('Piece {n}', { n: i + 1 });
+    const out = [];
+    if (parts.format) {
+      if (kind === 'span') out.push(`${t('Format ({n} sections, top to bottom):', { n: els.length })}\n${els.map((e, i) => `Part ${i + 1}, ${namesEn[i]}:\n${sectionReport(e, 'format').code}`).join('\n\n')}`);
+      else {
+        const arr = arrangementItem(els[0].parentElement, els, 'pieces');
+        const outl = els.map((e, i) => `${piece(i)}:\n${outline(e, { maxDepth: 5, maxLines: 25, lean: true, bare: true })}`).join('\n\n');
+        let rel = '';
+        // No Spacing line here: a part's own padding is not the page's section rhythm.
+        try { rel = `\n\n${t('Color relationships')} ${t('(keep these even in other colors):')}\n${colorRelations(els[0]).join('\n')}`; } catch (err) { console.debug('[Huescribe] part relations failed', err); }
+        let pos = '';
+        try { pos = `\n\n${positionFacts(els[0], els[els.length - 1])}`; } catch (err) { console.debug('[Huescribe] part position failed', err); }
+        out.push(`${t('Format (only these {n} pieces of the section, not the rest of it):', { n: els.length })}\n${t('How they sit: {how}', { how: arr.code })}${pos}\n\n${outl}${rel}`);
+      }
+    }
+    // "Colors:" stays English; prompts.js finds the font block by t('Font scheme:').
+    if (parts.colors) out.push(`Colors:\n${els.map((e, i) => `${kind === 'span' ? names[i] : piece(i)}:\n${colorReport(e)}`).join('\n\n')}`);
+    if (parts.fonts) { const f = await fontScheme(els); if (f) out.push(`${t('Font scheme:')}\n${f}`); }
+    let scrollFound = null; let scrollYs = [];
+    if (parts.scroll) {
+      const facts = [];
+      for (const [i, e] of els.entries()) {
+        const sc = await sectionScroll(e);
+        if (sc.facts.length) { facts.push(`${kind === 'span' ? names[i] : piece(i)}: ${sc.facts.join('; ')}`); if (!scrollYs.length) scrollYs = sc.ys || []; }
+      }
+      scrollFound = facts.length > 0;
+      if (facts.length) out.push(`${t('Scroll behavior:')}\n${facts.map((f) => `- ${f}`).join('\n')}`);
+    }
+    return { name, code: out.join('\n\n'), scrollFound, scrollYs };
+  }
+
+  /** What the panel needs for one chosen section. */
+  function sectionReport(el, kind) {
+    const name = sectionName(el, true);
+    const r = el.getBoundingClientRect();
+    if (kind === 'colors') return { name, code: colorReport(el) };
+    let extra = '';
+    try { extra = `\n\n${spacingFacts(el)}\n\n${t('Color relationships')} ${t('(keep these even in other colors):')}\n${colorRelations(el).join('\n')}`; }
+    catch (err) { console.debug('[Huescribe] spacing/color relationships failed', err); }
+    let pos = '';
+    try { pos = `\n\n${positionFacts(el)}`; } catch (err) { console.debug('[Huescribe] position facts failed', err); }
+    return { name, code: `${t('In short: {gist}', { gist: layoutGist(el) })}\n${t('{h}px tall', { h: r0(r.height) })}${pos}\n\n${outline(el, { maxDepth: 6, maxLines: 50, lean: true, bare: true })}${extra}` };
+  }
+
+  /** A screen portion with the chosen parts (colors / format / scroll) in one block. */
+  async function portionReport(el, parts) {
+    const name = sectionName(el, true);
+    const out = [];
+    if (parts.format) out.push(`${t('Format:')}\n${sectionReport(el, 'format').code}`);
+    if (parts.colors) out.push(`Colors:\n${colorReport(el)}`);
+    if (parts.fonts) { const f = await fontScheme([el]); if (f) out.push(`${t('Font scheme:')}\n${f}`); }
+    let scrollFound = null;
+    let scrollYs = [];
+    if (parts.scroll) {
+      const s = await sectionScroll(el);
+      scrollFound = s.facts.length > 0;
+      scrollYs = s.ys || [];
+      if (s.facts.length) out.push(`${t('Scroll behavior ({range}):', { range: s.range })}\n${s.facts.map((f) => `- ${f}`).join('\n')}`);
+    }
+    return { name, code: out.join('\n\n'), scrollFound, scrollYs };
+  }
+
+  /** Items for one picked element (+ a "whole element" recipe). */
+  async function itemsForElement(el) {
+    const sheets = await loadRules();
+    const nodes = [el, ...[...el.querySelectorAll('*')].filter((n) => !SKIP_TAGS.has(n.tagName) && isVisible(n, getComputedStyle(n)))];
+    const items = collectItems(nodes, sheets, el);
+    const nav = navRootFor(el);
+    if (nav && (nav === el || el.contains(nav) || nav.contains(el)) && el.getBoundingClientRect().height <= 260) items.push(navItem(nav));
+    else if (kidsOf(el).length >= 1 && el.querySelectorAll('*').length >= 2) items.push(structureItem(el));
+    // (No "Everything / All of it" choice any more: Colors, Fonts, Layout and Motion together cover it.)
+    const own = metaOf(el);
+    for (const it of items) it.meta ??= own;
+    return items;
+  }
+
+  /** Items for a dragged screen region. When it covers several similar things (cards, links,
+   *  buttons…), only what they SHARE is offered: arrangement, common style, shared fonts, shared
+   *  hover and the background behind them; not each element's own details. */
+  async function itemsForRegion(region) {
+    const sheets = await loadRules();
+    scope = region;
+    let nodes;
+    try { nodes = collectElements().map((e) => e.el); } finally { scope = null; }
+    const rc = regionContainer(region);
+    const { parent, members } = regionMembers(region);
+    const root = regionRoot(region);
+    const navR = navRootFor(root);
+    const shape = navR && (navR === root || root.contains(navR)) && root.getBoundingClientRect().height <= 260 ? navItem(navR) : root && root !== document.body ? structureItem(root) : null;
+    if (members.length < 2) {
+      const items = collectItems(nodes, sheets, null);
+      if (shape) items.push(shape);
+      if (rc.layoutEl) items.push(layoutItem(rc.layoutEl));
+      return items;
+    }
+    const items = shape ? [shape] : [];
+    const noun = ROLE_NOUN[kindOf(members[0])] || 'item';
+    const plural = noun.endsWith('s') ? noun : `${noun}s`;
+    items.push(arrangementItem(parent, members, plural));
+    const look = sharedLook(members, plural);
+    if (look) items.push(look);
+    for (const [sel, title] of [['h1,h2,h3,h4,h5,h6', tk('Shared heading font')], ['p', tk('Shared text font')], ['a,button', tk('Shared link font')]]) {
+      const els = members.map((m) => (m.matches(sel) ? m : m.querySelector(sel)));
+      if (els.some((e) => !e)) continue;
+      const specs = els.map((e) => textSpec(getComputedStyle(e)));
+      if (!specs.every((x) => x.family === specs[0].family && x.size === specs[0].size && x.weight === specs[0].weight)) continue;
+      const cs = getComputedStyle(els[0]);
+      items.push(mk({ target: reg(els[0]), rect: rectOf(els[0]), group: GROUPS.text, type: 'font', title, ...fontWords(specs[0]), fontSource: familySource(specs[0].family, sheets), context: t('Same in all {n}', { n: members.length }), code: fontCode(specs[0], cs), preview: { kind: 'font', value: { family: cs.fontFamily, size: Math.min(specs[0].size, 22), weight: specs[0].weight } } }));
+    }
+    const hovers = members.map((m) => statesFor(m, sheets, 4).map((x) => `${x.state}|${x.css}`));
+    const common = hovers[0].filter((h) => hovers.every((list) => list.includes(h)));
+    for (const key of common.slice(0, 2)) {
+      const [state, css] = key.split('|');
+      const cs = getComputedStyle(members[0]);
+      const trans = cs.transitionDuration.split(',').some((d) => px(d) > 0) ? `transition: ${mini(cs.transition).replace(/,/g, ', ')};\n` : '';
+      const hv = { noun: cap(t(noun)), n: members.length };
+      items.push(mk({ target: reg(parent), rect: rectOf(parent), group: GROUPS.hover, when: state === 'hover' ? tk('On hover') : tk('On click'), type: state === 'hover' ? 'hover' : 'focus', title: state === 'hover' ? t('{noun} hover (all {n})', hv) : t('{noun} click (all {n})', hv), desc: `${cap(stateWords(css))}.`, tech: '', context: '', code: `${t('/* resting */')}\n${trans}/* :${state} */\n${css.replace(/;/g, ';\n')};`, preview: { kind: 'none' } }));
+    }
+    // Background behind them (the container they sit in).
+    const bgEl = [parent, ...ancestors(parent)].find((e) => { const c = getComputedStyle(e); return c.backgroundImage.includes('gradient(') || normColor(c.backgroundColor); });
+    if (bgEl && bgEl !== document.body && bgEl !== document.documentElement) {
+      const c = getComputedStyle(bgEl);
+      if (c.backgroundImage.includes('gradient(')) items.push(mk({ target: reg(bgEl), rect: rectOf(bgEl), group: GROUPS.bg, type: 'gradient', ...gradientWords(c.backgroundImage, false), title: t('Background behind them'), context: '', code: `background-image: ${hexify(c.backgroundImage)};`, preview: { kind: 'gradient', value: mini(c.backgroundImage) } }));
+      else items.push(mk({ target: reg(bgEl), rect: rectOf(bgEl), group: GROUPS.bg, type: 'color', title: t('Background behind them'), desc: `${cap(colorName(normColor(c.backgroundColor)))}.`, tech: normColor(c.backgroundColor), context: '', code: `background-color: ${normColor(c.backgroundColor)};`, preview: { kind: 'color', value: normColor(c.backgroundColor) } }));
+    }
+    // A CSS animation they all run (recorded group animations are added by the panel).
+    const names = members.map((m) => getComputedStyle(m).animationName);
+    if (names[0] !== 'none' && names.every((n) => n === names[0])) {
+      const rule = sheets.keyframes.find((k) => k.name === names[0].split(',')[0].trim());
+      if (rule) {
+        const cs = getComputedStyle(members[0]);
+        const delays = members.map((m) => parseFloat(getComputedStyle(m).animationDelay) * 1000).sort((a, b) => a - b);
+        const stagger = delays.length > 1 ? Math.round((delays[delays.length - 1] - delays[0]) / (delays.length - 1)) : 0;
+        const loop = cs.animationIterationCount === 'infinite';
+        const words = globalThis.HuescribeMotion?.describe({ frames: framesOfRule(rule), iterations: loop ? 'infinite' : 1, duration: Math.round(parseFloat(cs.animationDuration) * 1000), stagger, count: members.length, unit: 'item', easing: cs.animationTimingFunction, trigger: loop ? 'loop' : 'load', target: t('the {noun}', { noun: pluralWords(plural) }) });
+        items.push(mk({ target: reg(parent), rect: rectOf(parent), group: GROUPS.anim, when: loop ? tk('Loops') : tk('On load'), animName: rule.name, type: 'animation', title: words?.name || t('Shared animation'), desc: words?.sentence || '', tech: words?.numbers || '', context: '', code: `${keyframesCode(rule)}\n\n${t('/* on each of the {n} */', { n: members.length })}\nanimation: ${mini(cs.animation)};${stagger ? `\n${t('/* each starts {ms}ms after the previous one */', { ms: stagger })}` : ''}`, preview: { kind: 'none' } }));
+      }
+    }
+    // Shared details describe the members ("all 3 cards"), so that is what they fit to.
+    const shared = metaOf(members[0]);
+    for (const it of items) it.meta ??= shared;
+    return items;
+  }
+
+  function ancestors(el) { const out = []; for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) out.push(n); return out; }
+
+  /** The element with the most visible children inside the region, and those children. */
+  // ---------- text split into pieces (letters/words in their own spans) ----------
+
+  /** A short inline bit of text, like a letter or word wrapped in a span for an animation. */
+  function isTextPiece(el) {
+    if (!(el instanceof HTMLElement) || /^(IMG|SVG|VIDEO|CANVAS|BUTTON|INPUT|SELECT|TEXTAREA|A)$/i.test(el.tagName)) return false;
+    if (!/^inline/.test(getComputedStyle(el).display)) return false;
+    if (el.querySelector('img,svg,video,canvas,button,input,select,textarea')) return false;
+    const t = el.textContent.trim();
+    return t.length > 0 && t.length <= 40;
+  }
+  const INHERITED_KEY = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'color'];
+  const PIECE_KEY = [...INHERITED_KEY, 'backgroundColor', 'backgroundImage', 'textDecorationLine', 'letterSpacing', 'textTransform'];
+  const keyOf = (cs, props) => props.map((p) => cs[p]).join('|');
+
+  /** Pieces that look exactly alike: together they are one piece of text, not several things. */
+  function indistinctPieces(kids) {
+    if (kids.length < 2 || !kids.every(isTextPiece)) return false;
+    const k0 = keyOf(getComputedStyle(kids[0]), PIECE_KEY);
+    return kids.every((k) => keyOf(getComputedStyle(k), PIECE_KEY) === k0);
+  }
+
+  /** Climb from a letter/word span to the whole text when nothing sets it apart from its neighbours. */
+  function wholeText(el) {
+    // An icon inside a button or link: clicking it means the button (↓ still reaches the icon).
+    const ctl = el?.closest?.('button, a, [role=button]');
+    if (ctl && ctl !== el) {
+      const r = el.getBoundingClientRect(), c = ctl.getBoundingClientRect();
+      const icon = !!el.closest('svg') || /^(IMG|I)$/.test(el.tagName) || (el.tagName === 'SPAN' && !textOf(el));
+      if (icon && r.width <= 32 && r.height <= 32 && c.width <= 600) return ctl;
+    }
+    let n = el;
+    for (let i = 0; i < 4 && n?.parentElement && n.parentElement !== document.body && isTextPiece(n); i++) {
+      const parent = n.parentElement;
+      const sibs = [...parent.children].filter((c) => !/^(SCRIPT|STYLE|BR)$/.test(c.tagName));
+      if (!indistinctPieces(sibs.length > 1 ? sibs : [n, n])) break;
+      // The pieces must also match the text around them (a highlighted word is its own thing).
+      if (keyOf(getComputedStyle(n), INHERITED_KEY) !== keyOf(getComputedStyle(parent), INHERITED_KEY)) break;
+      n = parent;
+    }
+    return n;
+  }
+
+  function regionMembers(region) {
+    const overlap = (r) => {
+      const w = Math.min(r.right, region.right) - Math.max(r.left, region.left);
+      const h = Math.min(r.bottom, region.bottom) - Math.max(r.top, region.top);
+      return w > 0 && h > 0 && (w * h) / Math.max(1, r.width * r.height) >= 0.5;
+    };
+    const root = regionRoot(region);
+    let best = { parent: root, members: [] };
+    for (const cand of [root, ...root.querySelectorAll('*')].slice(0, 600)) {
+      if (SKIP_TAGS.has(cand.tagName) || cand.closest('#__huescribe-root')) continue;
+      const kids = [...cand.children].filter((k) => !SKIP_TAGS.has(k.tagName) && isVisible(k, getComputedStyle(k)) && overlap(k.getBoundingClientRect()));
+      if (indistinctPieces(kids)) continue; // letters/words of one text are one thing
+      if (kids.length > best.members.length) best = { parent: cand, members: kids };
+    }
+    return best;
+  }
+
+  /** How the picked things sit next to each other (measured, not prescribed). */
+  function arrangementItem(parent, members, plural) {
+    // Layout boxes, not painted ones: a card that is mid-animation (moved by a transform) must not count as a new row.
+    const rects = members.map((m) => {
+      if (!(m instanceof HTMLElement)) return m.getBoundingClientRect();
+      const left = m.offsetLeft, top = m.offsetTop;
+      return { left, top, width: m.offsetWidth, height: m.offsetHeight, right: left + m.offsetWidth, bottom: top + m.offsetHeight };
+    });
+    const rows = [];
+    for (const r of [...rects].sort((a, b) => a.top - b.top)) {
+      const row = rows.find((x) => Math.abs(x[0].top - r.top) < 6);
+      if (row) row.push(r); else rows.push([r]);
+    }
+    rows.forEach((row) => row.sort((a, b) => a.left - b.left));
+    const perRow = Math.max(...rows.map((r) => r.length));
+    const med = (arr) => { const a = [...arr].sort((x, y) => x - y); return a.length ? Math.round(a[Math.floor(a.length / 2)]) : 0; };
+    const hGap = med(rows.flatMap((row) => row.slice(1).map((r, i) => r.left - row[i].right)));
+    const vGap = med(rows.slice(1).map((row, i) => row[0].top - rows[i][0].bottom));
+    const widths = rects.map((r) => Math.round(r.width));
+    const sameWidth = widths.every((w) => Math.abs(w - widths[0]) <= 2);
+    const apart = (g) => (g > 0 ? t(', {n}px apart', { n: g }) : '');
+    const desc = rows.length === 1 ? t('{n} side by side{apart}{same}.', { n: members.length, apart: apart(hGap), same: sameWidth ? t(', same width') : '' })
+      : perRow === 1 ? t('{n} stacked{apart}.', { n: members.length, apart: apart(vGap) }) : tn(rows.length, '{n} row of {per}{apart}.', '{n} rows of {per}{apart}.', { per: perRow, apart: apart(hGap) });
+    const pc = getComputedStyle(parent);
+    const things = pluralWords(plural);
+    const facts = [
+      tn(rows.length, '{count} {things} in {n} row of up to {per}', '{count} {things} in {n} rows of up to {per}', { count: members.length, things, per: perRow }),
+      hGap > 0 ? t('gap between them side by side: {n}px', { n: hGap }) : null,
+      rows.length > 1 && vGap > 0 ? t('gap between rows: {n}px', { n: vGap }) : null,
+      sameWidth ? t('each {w}px wide', { w: widths[0] }) : t('widths {list}px', { list: widths.join(', ') }),
+      t('container: display {display}{cols}{dir}, {w}px wide (at a {win}px window)', { display: pc.display, cols: pc.display.includes('grid') ? t(', {n} columns', { n: pc.gridTemplateColumns.split(' ').filter(Boolean).length }) : '', dir: pc.display.includes('flex') ? `, ${pc.flexDirection}` : '', w: Math.round(parent.getBoundingClientRect().width), win: innerWidth }),
+    ].filter(Boolean).join('\n');
+    return mk({ target: reg(parent), rect: rectOf(parent), group: GROUPS.layout, type: 'layout', title: t('How the {things} are arranged', { things }), desc, tech: '', context: '', code: facts, preview: { kind: 'none' } });
+  }
+
+  /** Style properties every picked element has in common. */
+  function sharedLook(members, plural) {
+    const props = ['background-color', 'background-image', 'border-radius', 'box-shadow', 'border-top', 'padding', 'backdrop-filter', 'text-align'];
+    const css = members.map((m) => getComputedStyle(m));
+    const decls = [];
+    const words = [];
+    for (const p of props) {
+      const v = css[0].getPropertyValue(p);
+      if (!css.every((c) => c.getPropertyValue(p) === v)) continue;
+      // Format only: colors, gradients and shadows are offered under Colors.
+      if (p === 'background-color' || p === 'background-image' || p === 'box-shadow') continue;
+      else if (p === 'border-radius' && v !== '0px') { decls.push(`border-radius: ${v};`); words.push(t('rounded corners')); }
+      else if (p === 'box-shadow' && v !== 'none') { decls.push(`box-shadow: ${mini(v)};`); words.push(shadowWords(mini(v), false).replace(/\.$/, '').toLowerCase()); }
+      else if (p === 'border-top' && !/^0px/.test(v)) { decls.push(`border-width: ${v.split(' ')[0]};`); words.push(t('thin border')); }
+      else if (p === 'padding' && !/^0px( 0px)*$/.test(v)) decls.push(`padding: ${v};`);
+      else if (p === 'backdrop-filter' && v !== 'none') { decls.push(`backdrop-filter: ${v};`); words.push(t('frosted glass')); }
+      else if (p === 'text-align' && /center|right/.test(v)) { decls.push(`text-align: ${v};`); words.push(v === 'center' ? t('text centered') : t('text on the right')); }
+    }
+    if (!decls.length) return null;
+    return mk({ target: reg(members[0]), rect: rectOf(members[0]), group: GROUPS.shape, type: 'shared-style', title: t('What the {things} have in common', { things: pluralWords(plural) }), desc: words.length ? `${cap(words.join(', '))}.` : t('Same spacing.'), tech: '', context: t('Same in all {n}', { n: members.length }), code: decls.join('\n'), preview: { kind: 'none' } });
+  }
+
+  /** The element enclosing a dragged region (tagged by the picker so recorded movement can be matched). */
+  function regionRoot(region) {
+    const cx = (region.left + region.right) / 2; const cy = (region.top + region.bottom) / 2;
+    let el = document.elementsFromPoint(cx, cy).find((n) => !n.closest('#__huescribe-root'));
+    while (el && el.parentElement) {
+      const r = el.getBoundingClientRect();
+      if (r.left <= region.left + 8 && r.top <= region.top + 8 && r.right >= region.right - 8 && r.bottom >= region.bottom - 8) break;
+      el = el.parentElement;
+    }
+    return el && el !== document.documentElement ? el : document.body;
+  }
+
+  /** Page-wide items for "See this page's style". */
+  async function itemsForPage() {
+    const sheets = await loadRules();
+    const els = collectElements();
+    const nodes = els.map((e) => e.el);
+    const items = collectItems(nodes, sheets, null).filter((i) => i.type !== 'font');
+    const data = { fonts: await analyzeFonts(els, sheets), colors: await analyzeColors(els, sheets) };
+    for (const [role, title] of [['h1', tk('Big heading font')], ['h2', tk('Heading font')], ['body', tk('Text font')], ['button', tk('Button font')], ['nav link', tk('Menu font')]]) {
+      const s = data.fonts.roles[role];
+      if (!s) continue;
+      const src = data.fonts.families.find((f) => f.family === s.family)?.source;
+      items.push(mk({ group: GROUPS.text, type: 'font', title, ...fontWords(s), fontSource: familySource(s.family, sheets), context: '', code: fontCode(s, null) + (src && src !== 'unknown' ? `\n${t('/* source on the original: {source} */', { source: t(src) })}` : ''), preview: { kind: 'font', value: { family: s.family, size: Math.min(s.size, 22), weight: s.weight } } }));
+    }
+    const c = data.colors;
+    // The color scheme as it runs down the page, section by section: what people mean by
+    // "copy this site's colors" when backgrounds, gradients and text colors change as you scroll.
+    const journey = colorJourney();
+    items.unshift(mk({ group: GROUPS.bg, type: 'palette', title: t('Color scheme'), desc: journey.desc, tech: '', context: t('The whole page, top to bottom'), code: journey.code, preview: { kind: 'palette', value: journey.swatches.length ? journey.swatches : [c.base] } }));
+    items.push(mk({ group: GROUPS.layout, type: 'structure', title: tk('Page structure'), desc: t('Every section from top to bottom: what is in it and how it is laid out.'), tech: '', context: t('The whole page'), code: pageStructure(), preview: { kind: 'none' } }));
+    const pageNav = navRootFor(document.body);
+    if (pageNav) items.push(navItem(pageNav));
+    const add = (title, hex) => hex && items.push(mk({ group: GROUPS.bg, type: 'color', title, desc: `${cap(colorName(hex))}.`, tech: hex, context: '', code: `${hex}`, preview: { kind: 'color', value: hex } }));
+    add(t('Background color'), c.base);
+    const accents = (c.accents || []).map((a) => a.value).filter((v) => /^#/.test(v) && (hslOf(v)?.s || 0) > 0.3);
+    add(t('Main color'), accents[0]);
+    if (accents[1]) add(t('Second color'), accents[1]);
+    add(t('Text color'), c.text?.[0]?.value);
+    for (const b of (c.backgrounds || []).slice(0, 4)) if (b.value !== c.base && /^#/.test(b.value)) add(t('{noun} color', { noun: cap(t(ROLE_NOUN[b.kinds[0]] || tk('box'))) }), b.value);
+    return items;
+  }
+
+  // Lazy access to the guide renderer in prompts.js (injected alongside when browsing).
+  function HuescribeGuideSection(cat, data) {
+    return globalThis.HuescribePrompts ? globalThis.HuescribePrompts.section(cat, data) : '';
+  }
+
+
+  // ---------- public API ----------
+
+  const ANALYZERS = { fonts: analyzeFonts, colors: analyzeColors, animations: analyzeAnimations, layout: analyzeLayout, shape: analyzeShape, components: analyzeComponents };
+
+  /**
+   * @param {string[]} categories subset of ANALYZERS keys, or ['all']
+   * @param {{region?: {left:number, top:number, right:number, bottom:number}}} [opts]
+   */
+  async function analyze(categories, opts = {}) {
+    const started = performance.now();
+    scope = opts.region || null;
+    try {
+      const sheets = await loadRules();
+      const els = collectElements();
+      const want = categories.includes('all') ? Object.keys(ANALYZERS) : categories;
+      const data = { scoped: !!scope, stack: analyzeStack(sheets) };
+      for (const c of want) {
+        if (!ANALYZERS[c]) continue;
+        try { data[c] = await ANALYZERS[c](els, sheets); }
+        catch (e) { console.error('[Huescribe] analyzer failed:', c, e); data[c] = { error: String(e?.message || e) }; }
+      }
+      if (scope) { const { layoutEl, ...rc } = regionContainer(scope); void layoutEl; data.region = rc; }
+      data.diagnostics = { elements: els.length, rules: sheets.styleRules.length, unreadable: sheets.unreadable.length, ms: Math.round(performance.now() - started) };
+      return data;
+    } finally {
+      scope = null;
+    }
+  }
+
+  /** Is this one of the page's sections (a band from top to bottom of the page)? */
+  const isSection = (el) => !!el && pageBands().includes(el);
+
+  globalThis.__Huescribe = { version: 14, isSection, fontScheme, areaSelection, portionReportGroup, colorRelations, spacingFacts, kindOf, metaOf, areaScrollHint, playState, restoreState, elementScroll, scrollHint, portionReport, sectionOf, sectionName, sectionReport, analyze, analyzeElement, itemsForElement, itemsForRegion, itemsForPage, regionRoot, wholeText };
+})();

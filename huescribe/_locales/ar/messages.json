@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: انسخ تصميم أي موقع كطلب (Prompt) للذكاء الاصطناعي",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "انسخ الألوان والخطوط والتخطيط والحركات من أي موقع في طلب (Prompt) جاهز للصق في Claude Code وCursor وLovable وv0 وBolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

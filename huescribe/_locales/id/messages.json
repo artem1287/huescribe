@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: salin desain situs web apa pun jadi prompt AI",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Salin warna, font, tata letak, dan animasi situs mana pun jadi prompt siap tempel untuk Claude Code, Cursor, Lovable, v0, dan Bolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

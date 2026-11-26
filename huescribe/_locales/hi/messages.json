@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: किसी भी वेबसाइट का डिज़ाइन AI प्रॉम्प्ट के रूप में कॉपी करें",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "किसी भी वेबसाइट के रंग, फ़ॉन्ट, लेआउट, एनिमेशन कॉपी करें: Claude Code, Cursor, Lovable, v0, Bolt में पेस्ट करने को तैयार प्रॉम्प्ट.",
+    "description": "Short description (max 132 characters)."
+  }
+}

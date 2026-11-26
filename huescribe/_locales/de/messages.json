@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe: Website-Design als KI-Prompt kopieren",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "Kopiere Farben, Schriften, Layout und Animationen jeder Website als fertigen Prompt für Claude Code, Cursor, Lovable, v0 und Bolt.",
+    "description": "Short description (max 132 characters)."
+  }
+}

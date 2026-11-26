@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Huescribe：一键复制任意网站设计，生成 AI 提示词",
+    "description": "Extension name in Chrome and the Chrome Web Store (max 75 characters)."
+  },
+  "appDesc": {
+    "message": "复制任意网站的颜色、字体、布局和动画，生成可直接粘贴到 Claude Code、Cursor、Lovable、v0 和 Bolt 的 AI 提示词。",
+    "description": "Short description (max 132 characters)."
+  }
+}
