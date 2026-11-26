@@ -1,0 +1,8 @@
+file '00-intro.mp4'
+file '01-hover.mp4'
+file '02-section.mp4'
+file '03-choose.mp4'
+file '04-button.mp4'
+file '05-list.mp4'
+file '06-copy.mp4'
+file '99-outro.mp4'

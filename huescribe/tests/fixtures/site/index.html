@@ -1,0 +1,133 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Acme — Ship faster</title>
+<link rel="stylesheet" href="http://127.0.0.1:8002/theme.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&display=swap">
+<style>
+ html { scroll-behavior: smooth; }
+ body { margin:0; background: var(--background); color: var(--foreground); font: 17px/1.6 "Satoshi", system-ui, sans-serif; }
+ h1,h2 { font-family: "Fraunces", Georgia, serif; letter-spacing: -0.02em; line-height: 1.1; }
+ h1 { font-size: 64px; } h2 { font-size: 40px; }
+ header { position: sticky; top: 0; backdrop-filter: blur(12px); background: rgba(251,250,247,.8); border-bottom: 1px solid #e7e5e4; height: 64px; display:flex; align-items:center; justify-content:space-between; padding: 0 24px; }
+ header a { color: #57534e; text-decoration: none; font-size: 15px; margin-left: 24px; }
+ .container { max-width: 1120px; margin: 0 auto; }
+ section { padding: 96px 24px; }
+ .hero-badge { display:inline-block; animation: float 4s ease-in-out infinite; }
+ .features { display:grid; gap: 24px; }
+ .card { background:#fff; border:1px solid #e7e5e4; border-radius: var(--radius); padding: 28px; box-shadow: 0 1px 2px rgba(0,0,0,.04); transition: all .3s var(--ease-out); }
+ input { padding: 12px 14px; border: 1px solid #d6d3d1; border-radius: 10px; font: inherit; }
+ input:focus { outline: none; box-shadow: 0 0 0 3px rgba(234,88,12,.25); border-color: #ea580c; }
+ footer { background:#1c1917; color:#a8a29e; padding: 48px 24px; }
+ .grad { background-image: linear-gradient(135deg, #fed7aa, #fbcfe8); }
+ .hero-p { animation: fadeUp .8s ease-out both; }
+ .spacer { height: 700px; display:flex; align-items:center; justify-content:center; color:#a8a29e; }
+ .card.reveal { opacity: 0; transform: translateY(30px); transition: opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); }
+ .card.reveal.in { opacity: 1; transform: none; }
+ #x { padding: 60px 24px; display: grid; gap: 28px; }
+ #x h2 { position: relative; display: inline-block; }
+ #x h2::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 3px; background: #ea580c; animation: barIn .7s ease-out both; }
+ @keyframes barIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
+ .track { height: 10px; background: #e7e5e4; border-radius: 99px; overflow: hidden; width: 300px; }
+ .fill { height: 100%; background: #ea580c; }
+ .drift { width: 120px; height: 60px; background: #fbcfe8; border-radius: 12px; animation: drift linear both; animation-timeline: view(); }
+ @keyframes drift { from { transform: translateY(40px); } to { transform: translateY(-40px); } }
+ .slider { width: 160px; padding: 12px; background: #fed7aa; border-radius: 10px; }
+ .card h3 { transition: color .25s ease; } .card:hover h3 { color: #ea580c; }
+ .card.reveal:nth-child(2) { transition-delay: .1s; } .card.reveal:nth-child(3) { transition-delay: .2s; }
+ #menu { display:flex; gap:8px; margin-top:12px; opacity:0; transform: translateY(-12px); transition: opacity .35s ease-out, transform .35s ease-out; }
+ #menu.open { opacity:1; transform:none; }
+ #go { display:inline-block; margin-left:12px; padding:8px 14px; background:#1c1917; color:#fff; border-radius:8px; text-decoration:none; }
+ #go.pressed { animation: press .35s ease-out; }
+ @keyframes press { 0% { transform: scale(1); } 40% { transform: scale(.9); } 100% { transform: scale(1); } }
+ #late-wrap { margin-top: 1400px; padding: 40px; }
+ #late { opacity:0; transform: translateY(30px); transition: opacity .6s ease-out, transform .6s ease-out; }
+ #late.in { opacity:1; transform:none; }
+</style></head><body>
+<header><strong>Acme</strong><nav><a href="#f">Features</a><a href="#p">Pricing</a><a class="btn" href="#s">Get started</a></nav></header>
+<main>
+ <section class="grad"><div class="container"><span class="hero-badge">✦ New</span><h1 id="hero-title">Ship faster with Acme</h1><p class="hero-p">The platform for teams who move quickly and break nothing.</p>
+   <a class="btn" href="#">Start free trial</a> <a class="btn ghost" href="#">Book a demo</a>
+   <form><input type="email" placeholder="you@company.com"><button class="btn" type="submit">Join</button></form></div></section>
+ <section class="spacer"><p>Trusted by thousands of teams</p></section>
+ <section id="f"><div class="container"><h2>Features</h2><div class="features">
+   <div class="card reveal"><h3>Fast</h3><p>Deploys in seconds, not minutes.</p></div>
+   <div class="card reveal"><h3>Safe</h3><p>Every change is reviewed automatically.</p></div>
+   <div class="card reveal"><h3>Smart</h3><p>Insights that tell you what to fix next.</p></div></div></div></section>
+<section id="m"><span id="jsh" style="display:inline-block;padding:6px 10px;border-radius:999px;background:#e0e7ff">Hover me</span> <button id="menu-btn" type="button">Menu</button><a id="go" href="empty.html">Go</a> <button id="jsp" type="button" style="padding:6px 12px;border-radius:8px;border:0;background:#1e293b;color:#fff">Press me</button> <a id="jsl" href="empty.html" style="display:inline-block;padding:6px 12px">Pressable link</a><div id="menu"><a href="#">One</a><a href="#">Two</a></div></section>
+<section id="x">
+   <h2 id="extras-title">Extras</h2>
+   <svg id="draw" width="220" height="60" viewBox="0 0 220 60"><path d="M10 50 C 60 0, 160 0, 210 50" fill="none" stroke="#ea580c" stroke-width="4" stroke-dasharray="300" stroke-dashoffset="300"/></svg>
+   <div class="track" id="track"><div class="fill" id="fill" style="width:0%"></div></div>
+   <fancy-box id="fancy"></fancy-box>
+   <div class="slider" id="slider">Slides in</div>
+   <div class="drift" id="drift"></div>
+   <canvas id="cv" width="160" height="80"></canvas>
+ </section>
+</main>
+<footer><div class="container">© Acme Inc. <a href="#" style="color:#fdba74">Privacy</a></div></footer>
+<section id="late-wrap"><p id="late">Comes in when you scroll down here.</p></section>
+<script>
+{ const j = document.getElementById('jsh'); let a = null;
+  j.addEventListener('pointerenter', () => { a = j.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }], { duration: 250, easing: 'ease-out', fill: 'forwards' }); });
+  j.addEventListener('pointerleave', () => { a && a.reverse(); }); }
+// 9.3 pointer test: a button and a link whose hover AND press effects are JavaScript (no CSS states).
+for (const id of ['jsp', 'jsl']) { const b = document.getElementById(id); let hv = null, pr = null;
+  b.addEventListener('pointerenter', () => { hv = b.animate([{ translate: '0 0' }, { translate: '0 -3px' }], { duration: 300, easing: 'ease-out', fill: 'forwards' }); });
+  b.addEventListener('pointerleave', () => { hv && hv.reverse(); });
+  b.addEventListener('pointerdown', () => { pr = b.animate([{ scale: '1' }, { scale: '0.9' }], { duration: 160, easing: 'ease-out', fill: 'forwards' }); });
+  b.addEventListener('pointerup', () => { pr && pr.reverse(); }); }
+document.getElementById('go').addEventListener('click', (e) => { const g = e.currentTarget; g.classList.remove('pressed'); void g.offsetWidth; g.classList.add('pressed'); });
+new IntersectionObserver((es) => es.forEach((x) => x.target.classList.toggle('in', x.isIntersecting)), { threshold: 0.5 }).observe(document.getElementById('late'));
+document.getElementById('menu-btn').addEventListener('click', () => document.getElementById('menu').classList.toggle('open'));
+
+// Simulates a GSAP-style JS text animation: letters tween via inline styles every frame.
+(function () {
+  const h1 = document.getElementById('hero-title');
+  const text = h1.textContent; h1.textContent = '';
+  const spans = [];
+  for (const ch of text) {
+    if (ch === ' ') { h1.append(' '); continue; }
+    const s = document.createElement('span'); s.textContent = ch; s.style.display = 'inline-block';
+    s.style.opacity = '0'; s.style.transform = 'translate(0px, 40px)'; h1.append(s); spans.push(s);
+  }
+  const expoOut = (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+  const t0 = performance.now() + 100;
+  function frame(now) {
+    let done = true;
+    spans.forEach((s, i) => {
+      const p = Math.min(1, Math.max(0, (now - t0 - i * 40) / 600));
+      if (p < 1) done = false;
+      if (p <= 0) return;
+      const e = expoOut(p);
+      s.style.opacity = String(Math.round(e * 1000) / 1000);
+      s.style.transform = `translate(0px, ${Math.round((1 - e) * 40 * 100) / 100}px)`;
+    });
+    if (!done) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  // Web Animations API: small logo wobble on load.
+  document.querySelector('header strong').animate([{ transform: 'rotate(-8deg)' }, { transform: 'none' }], { duration: 500, easing: 'ease-out' });
+  // Extras: JS attribute line drawing, JS width tween, shadow DOM, Animation.play, canvas.
+  const path = document.querySelector('#draw path');
+  const fill = document.getElementById('fill');
+  const t1 = performance.now() + 200;
+  (function frame2(now) {
+    const p = Math.min(1, Math.max(0, (now - t1) / 900));
+    path.setAttribute('stroke-dashoffset', String(Math.round(300 * (1 - p))));
+    fill.style.width = `${Math.round(p * 100)}%`;
+    if (p < 1) requestAnimationFrame(frame2);
+  })(performance.now());
+  customElements.define('fancy-box', class extends HTMLElement {
+    constructor() {
+      super();
+      const r = this.attachShadow({ mode: 'open' });
+      r.innerHTML = '<style>@keyframes popIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}} div{display:inline-block;padding:10px 14px;border-radius:10px;background:#fde68a;animation:popIn .5s ease-out both}</style><div>Inside a component</div>';
+    }
+  });
+  new Animation(new KeyframeEffect(document.getElementById('slider'), [{ transform: 'translateX(-60px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'both' })).play();
+  const cv = document.getElementById('cv'); const cx = cv.getContext('2d'); let ang = 0;
+  (function draw() { ang += 0.05; cx.clearRect(0, 0, 160, 80); cx.fillStyle = '#ea580c'; cx.beginPath(); cx.arc(80 + Math.cos(ang) * 40, 40, 10, 0, 7); cx.fill(); requestAnimationFrame(draw); })();
+  // Scroll reveal for cards.
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.2 });
+  document.querySelectorAll('.reveal').forEach((c) => io.observe(c));
+})();
+</script>
+</body></html>

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solenne Bay — Hotel on the Coast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- WhitneySSm and Lyon Text Web are licensed fonts; Mulish and Newsreader are the closest free matches. -->
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500&family=Newsreader:opsz,wght@6..72,400&display=swap" rel="stylesheet">
+<style>
+  /* Shared design variables: one color scheme (detail 8), one font scheme (detail 1), one spacing system. */
+  :root {
+    --bg: #f3eee7;
+    --text: #313131;
+    --muted: #6c6c6c;
+    --line: #dddddd;
+    --surface: #ffffff;
+    --font-sans: "Mulish", "WhitneySSm", system-ui, sans-serif;
+    --font-serif: "Newsreader", "Lyon Text Web", Georgia, serif;
+    --side: 25px;
+    --section: 96px;
+    --content: 1391px;
+    --pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 14px/1.45 var(--font-sans); letter-spacing: .05em; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; letter-spacing: inherit; }
+  .wrap { max-width: calc(var(--content) + 2 * var(--side)); margin: 0 auto; padding: 0 var(--side); }
+
+  /* 1 + 2 + 3 · Top bar: full width, three groups spread to both ends */
+  .top { position: sticky; top: 0; z-index: 10; background: var(--bg); }
+  .top-in { height: 88px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 0 var(--side); }
+  .top-left { width: 431px; display: flex; align-items: center; gap: 28px; }
+  .text-btn { background: none; border: 0; padding: 12px 0; min-height: 44px; display: inline-flex; align-items: center; gap: 12px; font-size: 14px; cursor: pointer; text-decoration: none; }
+  .text-btn svg { width: 22px; height: 22px; }
+  .logo { width: 150px; height: 40px; display: grid; place-items: center; text-decoration: none; font: 400 22px/1 var(--font-serif); letter-spacing: .42em; text-transform: uppercase; padding-left: .42em; }
+  .top-right { width: 431px; display: flex; justify-content: flex-end; }
+  .btn-main { font-size: 14px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 10px 15px; min-width: 140px; background: var(--text); color: var(--bg); border: 1px solid var(--text); transition: background-color .4s, border-color .4s; }
+  .btn-main:hover, .btn-main:focus-visible { background: #625f5f; border-color: #625f5f; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+  /* 4 · Hero: the film first, then the name and a link under it */
+  .hero { padding: 12px var(--side) 0; }
+  .hero-in { max-width: var(--content); margin: 0 auto; }
+  .film { position: relative; width: 100%; aspect-ratio: 1391 / 784; display: block; overflow: hidden; background: #a9b7b8; }
+  .film::after { content: ""; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, rgba(40,36,30,.45)); pointer-events: none; }
+  .film h1 { z-index: 1; position: absolute; left: 40px; bottom: 36px; margin: 0; color: #fffaf2; font: 400 31px/1.45 var(--font-serif); letter-spacing: .016em; text-shadow: 0 1px 18px rgba(0,0,0,.25); }
+  .film svg { width: 100%; height: 100%; display: block; }
+  .hero-text { padding-top: 26px; display: flex; flex-direction: column; }
+  .label { font: 400 10px/1.45 var(--font-sans); letter-spacing: .198em; text-transform: uppercase; margin: 0; }
+  .hero h1 { font: 400 31px/1.45 var(--font-serif); letter-spacing: .016em; margin: 0; }
+  .link { font-size: 13px; letter-spacing: .032em; text-decoration: none; border-bottom: 1px solid currentColor; align-self: flex-start; padding: 12px 0 2px; margin-top: 8px; }
+
+  /* 5 · Booking bar: one pill, three fields split by thin lines, a round button */
+  .booking { padding: var(--section) var(--side) 0; display: flex; justify-content: center; }
+  .pill { width: min(850px, 100%); height: 66px; display: grid; grid-template-columns: 1.6fr 1px 1.2fr 1px 1fr 1px auto; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--pill); box-shadow: 0 3px 12px rgba(0,0,0,.06); }
+  .field { height: 100%; border-radius: var(--pill); display: flex; flex-direction: column; justify-content: center; padding: 15px 32px; cursor: pointer; transition: background .2s; }
+  .field:hover { background: var(--bg); }
+  .field + .field, .field.mid { padding: 15px 24px; }
+  .field span { font: 500 12px/1.33 var(--font-sans); letter-spacing: .02em; padding-bottom: 2px; }
+  .field input, .field select { font: 500 14px/1.29 var(--font-sans); height: 18px; border: 0; padding: 0; background: transparent; color: var(--muted); outline: none; letter-spacing: .01em; width: 100%; }
+  .divider { width: 1px; height: 32px; background: var(--line); }
+  .last { display: flex; align-items: center; justify-content: flex-end; padding: 0 9px 0 0 !important; }
+  .last:hover { background: none; }
+  .round { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--text); color: var(--bg); display: grid; place-items: center; cursor: pointer; flex: none; }
+  .round svg { width: 18px; height: 18px; }
+  .booking > div { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .booking-note { text-align: center; font-size: 13px; color: var(--muted); min-height: 19px; margin: 12px 0 0; }
+
+  /* 6 · Philosophy: two equal columns, the bold line left, the text right */
+  .philosophy { padding: var(--section) 0; }
+  .two-eq { max-width: 1344px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; }
+  .two-eq > div { padding: 0 32px; }
+  .two-eq h2 { font: 400 48px/1.1 var(--font-serif); letter-spacing: -.01em; margin: 0; max-width: 542px; }
+  .two-eq p { font-size: 24px; line-height: 1.4; letter-spacing: 0; color: var(--muted); margin: 0 0 21px; max-width: 566px; }
+
+  /* 7 · Signature suites: centered title, then a carousel of 950px slides, one in the middle */
+  .suites { padding: var(--section) 0; overflow: hidden; }
+  .suites-head { text-align: center; padding: 0 var(--side) 60px; }
+  .suites-head h2 { font: 400 42px/1.2 var(--font-serif); letter-spacing: -.02em; margin: 0 0 21px; }
+  .suites-head p { font-size: 16px; line-height: 1.6; letter-spacing: 0; margin: 0; color: var(--muted); }
+  .carousel { position: relative; }
+  .track { display: flex; transition: transform .8s cubic-bezier(.22,.61,.36,1); will-change: transform; }
+  .slide { flex: 0 0 950px; padding: 0 22px; opacity: .45; transition: opacity .8s; }
+  .slide.on { opacity: 1; }
+  .slide .pic { width: 100%; aspect-ratio: 907 / 510; display: block; }
+  .slide-text { display: grid; grid-template-columns: 294px 1fr; gap: 20px; padding-top: 26px; }
+  .slide-text .label { font-size: 15px; letter-spacing: .05em; font-weight: 500; }
+  .slide-text h3 { font: 400 32px/1.2 var(--font-serif); letter-spacing: -.02em; margin: 4px 0 0; }
+  .slide-text p { font-size: 16px; line-height: 1.6; letter-spacing: 0; margin: 0 0 8px; }
+  .slide-text .link { font-size: 15px; letter-spacing: .05em; text-transform: uppercase; font-weight: 500; margin-top: 0; }
+  .arrows { position: absolute; top: calc((min(950px, 100vw) - 44px) * 510 / 907 / 2); left: 50%; width: min(950px, 100vw); transform: translateX(-50%); display: flex; justify-content: space-between; padding: 0 30px; pointer-events: none; }
+  .arrow { pointer-events: auto; width: 50px; height: 50px; border-radius: 50%; border: 0; background: rgba(243,238,231,.9); display: grid; place-items: center; cursor: pointer; }
+  .arrow:disabled { opacity: .35; cursor: default; }
+  .arrow svg { width: 20px; height: 20px; }
+  .dots { display: flex; justify-content: center; gap: 4px; margin-top: 36px; }
+  .dots button { width: 44px; height: 44px; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+  .dots button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); transition: background .3s; }
+  .dots button[aria-current="true"]::after { background: var(--text); }
+
+  /* 8 · Experiences: two uneven columns (2/3 + 1/3), picture, label, title, text, link */
+  .experiences { padding: 0 var(--side) 33px; }
+  .uneven { max-width: var(--content); margin: 0 auto; display: grid; grid-template-columns: 915fr 439fr; gap: 2.8px; }
+  .uneven article { display: flex; flex-direction: column; }
+  .uneven .pic { width: 100%; height: 541px; display: block; }
+  .uneven header { padding: 16px 0 14px; }
+  .uneven .label { font: 400 10px/1.45 var(--font-sans); letter-spacing: .198em; margin-bottom: 6px; }
+  .uneven h3 { font: 400 19.6px/1.45 var(--font-serif); letter-spacing: .05em; margin: 0 0 6px; }
+  .uneven p { font-size: 14px; margin: 0; max-width: 680px; }
+  .uneven .link { margin: 0 0 13px; letter-spacing: .062em; }
+
+  .foot { padding: var(--section) var(--side) 48px; border-top: 1px solid var(--line); margin-top: var(--section); }
+  .foot-in { max-width: var(--content); margin: 0 auto; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px; font-size: 13px; }
+  .foot .logo { justify-content: start; width: auto; padding-left: 0; }
+
+  @media (max-width: 1000px) {
+    .slide { flex-basis: 86vw; }
+    .slide-text { grid-template-columns: 1fr; gap: 8px; }
+    .two-eq { grid-template-columns: 1fr; gap: 21px; }
+    .uneven { grid-template-columns: 1fr; gap: 40px; }
+    .uneven .pic { height: auto; aspect-ratio: 4 / 3; }
+  }
+  @media (max-width: 760px) {
+    :root { --side: 20px; --section: 64px; }
+    /* Every size scales down together, so the ratios stay the same. */
+    body { font-size: 13px; }
+    .top-left { width: auto; gap: 8px; }
+    .top-left .word { display: none; }
+    .top-right { width: auto; }
+    .top-left, .top-right { flex: 1; }
+    .logo { font-size: 18px; letter-spacing: .3em; width: 120px; }
+    .film { aspect-ratio: 4 / 3; }
+    .film h1 { font-size: 22px; left: 18px; right: 18px; bottom: 16px; }
+    .btn-main { min-width: 0; padding: 10px 12px; font-size: 13px; }
+    .pill { height: auto; grid-template-columns: 1fr; border-radius: 28px; padding: 8px; gap: 0; }
+    .divider { width: auto; height: 1px; margin: 0 24px; }
+    .field { padding: 12px 24px !important; border-radius: 20px; }
+    .two-eq h2 { font-size: 38px; }
+    .two-eq p { font-size: 19px; }
+    .suites-head h2 { font-size: 33px; }
+    .slide-text h3 { font-size: 25px; }
+    .arrows { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .film * { animation: none !important; }
+    .track, .slide { transition: none; }
+  }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<!-- 1–3 · Top bar -->
+<header class="top">
+  <div class="top-in">
+    <div class="top-left">
+      <button class="text-btn" type="button" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <span class="word">Menu</span>
+      </button>
+      <button class="text-btn" type="button" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
+    </div>
+    <a class="logo" href="#top" aria-label="Solenne Bay, home">Solenne</a>
+    <div class="top-right"><a class="btn-main" href="#book">Reserve</a></div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- 4 · Hero -->
+  <section class="hero" aria-label="Welcome">
+    <div class="hero-in">
+      <div class="film">
+        <svg role="img" aria-label="Slow film of the coast: waves rolling into a cove under a low sun" viewBox="0 0 1391 784" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9d3d2"/><stop offset=".55" stop-color="#e9ddcb"/><stop offset="1" stop-color="#f1d9bd"/></linearGradient>
+            <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7e9a9c"/><stop offset="1" stop-color="#3f5f63"/></linearGradient>
+            <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff6e6"/><stop offset="1" stop-color="#fff6e6" stop-opacity="0"/></radialGradient>
+            <linearGradient id="glint" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+            <style>
+              @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-695px); } }
+              @keyframes drift2 { from { transform: translateX(-695px); } to { transform: translateX(0); } }
+              @keyframes breathe { 0%,100% { opacity: .55; } 50% { opacity: .9; } }
+              @keyframes clouds { from { transform: translateX(0); } to { transform: translateX(-1391px); } }
+              .w1 { animation: drift 38s linear infinite; }
+              .w2 { animation: drift2 52s linear infinite; }
+              .w3 { animation: drift 70s linear infinite; }
+              .gl { animation: breathe 7s ease-in-out infinite; }
+              .cl { animation: clouds 160s linear infinite; }
+            </style>
+          </defs>
+          <rect width="1391" height="784" fill="url(#sky)"/>
+          <circle cx="930" cy="330" r="220" fill="url(#sun)"/>
+          <circle cx="930" cy="330" r="34" fill="#fff8ec" opacity=".9"/>
+          <g class="cl" opacity=".5" fill="#fff">
+            <ellipse cx="300" cy="140" rx="160" ry="14"/><ellipse cx="760" cy="96" rx="210" ry="11"/><ellipse cx="1150" cy="170" rx="120" ry="9"/>
+            <ellipse cx="1691" cy="140" rx="160" ry="14"/><ellipse cx="2151" cy="96" rx="210" ry="11"/><ellipse cx="2541" cy="170" rx="120" ry="9"/>
+          </g>
+          <!-- far headland -->
+          <path d="M0 410 C 120 380, 220 360, 330 372 S 520 410, 610 418 L 610 784 L 0 784 Z" fill="#8c9590" opacity=".55"/>
+          <rect y="415" width="1391" height="369" fill="url(#sea)"/>
+          <rect x="760" y="420" width="340" height="190" fill="url(#glint)" class="gl"/>
+          <g class="w3" opacity=".35" stroke="#e8efee" stroke-width="2" fill="none">
+            <path d="M0 470 q 43 -8 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0 t 87 0"/>
+          </g>
+          <g class="w2" opacity=".45" stroke="#f3f6f4" stroke-width="2.5" fill="none">
+            <path d="M0 540 q 58 -12 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0 t 116 0"/>
+          </g>
+          <g class="w1">
+            <path d="M0 640 q 87 -26 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 V 784 H 0 Z" fill="#e9e1d4" opacity=".9"/>
+            <path d="M0 660 q 87 -20 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 t 174 0 V 784 H 0 Z" fill="#d9ccb7"/>
+          </g>
+          <!-- near cliff with the hotel's low white buildings -->
+          <path d="M1040 784 L 1060 520 C 1090 470, 1150 440, 1230 432 L 1391 420 L 1391 784 Z" fill="#6f6a5f"/>
+          <path d="M1080 784 L 1092 560 C 1120 520, 1170 500, 1240 494 L 1391 488 L 1391 784 Z" fill="#5b574e"/>
+          <g fill="#f6f1e8"><rect x="1180" y="404" width="64" height="30"/><rect x="1252" y="396" width="90" height="36"/><rect x="1350" y="402" width="41" height="26"/></g>
+          <g fill="#3d3a34" opacity=".55"><rect x="1190" y="414" width="44" height="6"/><rect x="1262" y="408" width="70" height="7"/></g>
+        </svg>
+        <h1>Solenne Bay, where the cliffs meet the sea</h1>
+      </div>
+      <div class="hero-text">
+        <p class="label">Hotel on the coast · 32 rooms</p>
+        <a class="link" href="#suites">Discover the bay</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · Booking bar -->
+  <section class="booking" id="book" aria-label="Check availability">
+    <div>
+      <form class="pill" id="booking">
+        <label class="field">
+          <span>Check-in</span>
+          <input type="date" name="in" aria-label="Check-in date">
+        </label>
+        <div class="divider" aria-hidden="true"></div>
+        <label class="field mid">
+          <span>Check-out</span>
+          <input type="date" name="out" aria-label="Check-out date">
+        </label>
+        <div class="divider" aria-hidden="true"></div>
+        <label class="field mid">
+          <span>Guests</span>
+          <select name="guests" aria-label="Guests"><option>1 guest</option><option selected>2 guests</option><option>3 guests</option><option>4 guests</option></select>
+        </label>
+        <div class="divider" aria-hidden="true"></div>
+        <div class="field last">
+          <button class="round" type="submit" aria-label="Check availability">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          </button>
+        </div>
+      </form>
+      <p class="booking-note" id="note" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- 6 · Philosophy -->
+  <section class="philosophy" aria-label="Our philosophy">
+    <div class="two-eq">
+      <div><h2>Slow mornings, quiet luxury</h2></div>
+      <div>
+        <p>Thirty-two rooms, no lobby queue, no schedule. Breakfast is served until the last guest wakes, and the sea sets the pace for everything else.</p>
+        <a class="link" href="#experiences" style="margin-top:0">Learn more</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · Signature suites -->
+  <section class="suites" id="suites" aria-label="Signature suites">
+    <div class="suites-head">
+      <h2>Our four signature suites</h2>
+      <p>Each one faces the water in its own way.</p>
+    </div>
+    <div class="carousel" aria-roledescription="carousel">
+      <div class="track" id="track"></div>
+      <div class="arrows">
+        <button class="arrow" id="prev" aria-label="Previous suite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <button class="arrow" id="next" aria-label="Next suite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+      <div class="dots" id="dots" role="tablist" aria-label="Choose a suite"></div>
+    </div>
+  </section>
+
+  <!-- 8 · Experiences -->
+  <section class="experiences" id="experiences" aria-label="Experiences">
+    <div class="uneven">
+      <article>
+        <svg class="pic" viewBox="0 0 915 541" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Spa pool cut into the rock, with steam over the water">
+          <defs><linearGradient id="spa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8cdbd"/><stop offset="1" stop-color="#b9ab97"/></linearGradient><linearGradient id="pool" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fb0ae"/><stop offset="1" stop-color="#55777a"/></linearGradient></defs>
+          <rect width="915" height="541" fill="url(#spa)"/>
+          <path d="M0 300 C 200 280, 420 300, 915 270 V 541 H 0 Z" fill="#a39581"/>
+          <ellipse cx="470" cy="400" rx="330" ry="80" fill="url(#pool)"/>
+          <ellipse cx="470" cy="392" rx="300" ry="62" fill="none" stroke="#e7efee" stroke-opacity=".4"/>
+          <g fill="#fff" opacity=".35"><ellipse cx="380" cy="320" rx="80" ry="16"/><ellipse cx="560" cy="300" rx="110" ry="14"/></g>
+          <rect x="80" y="120" width="12" height="190" fill="#7d7262"/><rect x="820" y="100" width="12" height="200" fill="#7d7262"/>
+        </svg>
+        <header>
+          <p class="label">Spa</p>
+          <h3>The Salt House</h3>
+          <p>Treatments with sea salt and warm stone, in rooms carved into the cliff.<br>Finish in the rock pool as the light goes gold.</p>
+        </header>
+        <a class="link" href="#book">Discover more</a>
+      </article>
+      <article>
+        <svg class="pic" viewBox="0 0 439 541" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A table set on a terrace at dusk, lanterns lit">
+          <defs><linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa2a6"/><stop offset=".6" stop-color="#d9b996"/><stop offset="1" stop-color="#8a7560"/></linearGradient></defs>
+          <rect width="439" height="541" fill="url(#dusk)"/>
+          <rect y="330" width="439" height="211" fill="#6e5f50"/>
+          <ellipse cx="220" cy="390" rx="150" ry="26" fill="#f1e9dc"/>
+          <rect x="214" y="390" width="12" height="110" fill="#4c4238"/>
+          <g fill="#ffe2b0"><circle cx="90" cy="150" r="6"/><circle cx="180" cy="130" r="6"/><circle cx="270" cy="128" r="6"/><circle cx="360" cy="146" r="6"/></g>
+          <path d="M60 156 Q 220 110 380 152" stroke="#4c4238" fill="none"/>
+          <g fill="#4c4238"><rect x="160" y="356" width="5" height="30"/><rect x="270" y="352" width="5" height="34"/></g>
+        </svg>
+        <header>
+          <p class="label">Restaurant</p>
+          <h3>Terra at Dusk</h3>
+          <p>Fish from the morning boats and vegetables from our garden.<br>One long table on the terrace, every evening.</p>
+        </header>
+        <a class="link" href="#book">Discover more</a>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <span class="logo">Solenne</span>
+    <span>Solenne Bay is a fictional hotel, made to test a design.</span>
+  </div>
+</footer>
+
+<script>
+  // Suites carousel: 950px slides in one row, the current one centered, neighbours peeking in.
+  const suites = [
+    { where: 'Garden wing', name: 'Garden Suite', line: 'Doors open straight onto a walled lemon garden, with a deep stone bath under the trees.', hue: ['#c7cfb4', '#8d9a76'] },
+    { where: 'North cliff', name: 'Cliff Villa', line: 'A private terrace hung over the water, a plunge pool and nothing between you and the horizon.', hue: ['#d6cbb8', '#8f8170'] },
+    { where: 'Old watchtower', name: 'Tower Loft', line: 'Three floors in the old signal tower, with a reading room at the top and windows on every side.', hue: ['#d2c6be', '#94817a'] },
+    { where: 'On the beach', name: 'Ocean Pavilion', line: 'Steps from the sand, a pavilion of pale wood and linen where the tide is the only sound.', hue: ['#bfd0d0', '#6f8f92'] },
+  ];
+  const pic = (s, i) => `<svg class="pic" viewBox="0 0 907 510" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${s.name}">
+    <defs><linearGradient id="g${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.hue[0]}"/><stop offset="1" stop-color="${s.hue[1]}"/></linearGradient></defs>
+    <rect width="907" height="510" fill="url(#g${i})"/>
+    <rect x="${120 + i * 40}" y="150" width="${420 - i * 30}" height="230" fill="#f6f1e8" opacity=".92"/>
+    <rect x="${150 + i * 40}" y="190" width="${120}" height="150" fill="${s.hue[1]}" opacity=".45"/>
+    <rect x="${300 + i * 30}" y="190" width="${90}" height="150" fill="${s.hue[1]}" opacity=".3"/>
+    <path d="M0 400 C 250 380, 600 410, 907 390 V 510 H 0 Z" fill="${s.hue[1]}" opacity=".7"/>
+  </svg>`;
+  const track = document.getElementById('track');
+  const dots = document.getElementById('dots');
+  track.innerHTML = suites.map((s, i) => `<article class="slide" aria-roledescription="slide" aria-label="${i + 1} of ${suites.length}">
+    ${pic(s, i)}
+    <div class="slide-text">
+      <div><p class="label">${s.where}</p><h3>${s.name}</h3></div>
+      <div><p>${s.line}</p><a class="link" href="#book">View suite</a></div>
+    </div></article>`).join('');
+  dots.innerHTML = suites.map((s, i) => `<button role="tab" aria-label="${s.name}"></button>`).join('');
+  let at = 0;
+  function go(i) {
+    at = Math.max(0, Math.min(suites.length - 1, i));
+    const slide = track.children[0].getBoundingClientRect().width;
+    const offset = (track.parentElement.clientWidth - slide) / 2 - at * slide;
+    track.style.transform = `translateX(${offset}px)`;
+    [...track.children].forEach((s, k) => { s.classList.toggle('on', k === at); s.setAttribute('aria-hidden', k === at ? 'false' : 'true'); });
+    [...dots.children].forEach((d, k) => d.setAttribute('aria-current', k === at ? 'true' : 'false'));
+    document.getElementById('prev').disabled = at === 0;
+    document.getElementById('next').disabled = at === suites.length - 1;
+  }
+  document.getElementById('prev').onclick = () => go(at - 1);
+  document.getElementById('next').onclick = () => go(at + 1);
+  [...dots.children].forEach((d, k) => (d.onclick = () => go(k)));
+  let sx = null;
+  track.addEventListener('pointerdown', (e) => { sx = e.clientX; });
+  track.addEventListener('pointerup', (e) => { if (sx != null && Math.abs(e.clientX - sx) > 40) go(at + (e.clientX < sx ? 1 : -1)); sx = null; });
+  addEventListener('resize', () => go(at));
+  go(1);
+
+  // Booking: there is no real system behind this test site, so say so instead of pretending.
+  const today = new Date().toISOString().slice(0, 10);
+  const form = document.getElementById('booking');
+  form.in.min = today; form.out.min = today;
+  form.in.addEventListener('change', () => { form.out.min = form.in.value || today; });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const note = document.getElementById('note');
+    if (!form.in.value || !form.out.value) { note.textContent = 'Choose your check-in and check-out dates first.'; return; }
+    if (form.out.value <= form.in.value) { note.textContent = 'Check-out has to be after check-in.'; return; }
+    note.textContent = `This is a test site: no rooms are held. You asked for ${form.guests.value}, ${form.in.value} to ${form.out.value}.`;
+  });
+  document.querySelector('.last').addEventListener('click', (e) => { if (e.target.closest('.round')) return; form.requestSubmit(); });
+</script>
+</body>
+</html>

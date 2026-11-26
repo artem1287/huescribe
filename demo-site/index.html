@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fieldnote: notes that keep up with you</title>
+<!-- Made-up demo site used for Huescribe screenshots and the demo video. -->
+<style>
+@font-face{font-family:Inter;src:url(fonts/inter-400.woff2) format("woff2");font-weight:400}
+@font-face{font-family:Inter;src:url(fonts/inter-500.woff2) format("woff2");font-weight:500}
+@font-face{font-family:Inter;src:url(fonts/inter-600.woff2) format("woff2");font-weight:600}
+@font-face{font-family:Newsreader;src:url(fonts/newsreader-opsz.woff2) format("woff2");font-weight:300 700}
+:root{--bg:#f7f5f0;--ink:#1d1c19;--muted:#6b6860;--card:#ffffff;--line:#e6e2d8;--accent:#e2572b;--accent-dark:#c2441c}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+nav{display:flex;align-items:center;justify-content:space-between;height:72px}
+.brand{font-family:Newsreader,serif;font-size:26px;font-weight:600;letter-spacing:-.01em}
+.links{display:flex;gap:28px;font-size:15px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:999px;font-weight:500;font-size:15px;border:1px solid transparent;
+  transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1),background-color .2s ease}
+.btn-main{background:var(--accent);color:#fff;box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.btn-main:hover{transform:translateY(-2px);background:var(--accent-dark);box-shadow:0 10px 24px -10px rgba(194,68,28,.7)}
+.btn-main:active{transform:translateY(0) scale(.97)}
+.btn-ghost{border-color:var(--line);background:#fff}
+.btn-ghost:hover{border-color:#cfc9bb}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:56px 0 88px}
+.eyebrow{display:inline-block;font-size:13px;font-weight:500;color:var(--accent-dark);background:#fbe6dc;padding:6px 12px;border-radius:999px}
+h1{font-family:Newsreader,serif;font-weight:500;font-size:64px;line-height:1.02;letter-spacing:-.025em;margin:18px 0 18px}
+.lead{font-size:19px;line-height:1.55;color:var(--muted);max-width:30em;margin:0 0 28px}
+.cta{display:flex;gap:12px}
+.hero-pic{aspect-ratio:4/5;border-radius:24px;background:url(hero.webp) center/cover;box-shadow:0 30px 60px -30px rgba(0,0,0,.45);animation:float 6s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-10px)}}
+section{padding:88px 0}
+h2{font-family:Newsreader,serif;font-weight:500;font-size:44px;letter-spacing:-.02em;margin:0 0 12px;text-align:center}
+.sub{text-align:center;color:var(--muted);font-size:17px;margin:0 0 44px}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s}
+.plan:hover{transform:translateY(-6px);box-shadow:0 24px 48px -24px rgba(0,0,0,.25)}
+.plan h3{margin:0 0 6px;font-size:18px;font-weight:600}
+.plan .price{font-family:Newsreader,serif;font-size:48px;font-weight:500;margin:14px 0 4px}
+.plan .price small{font-family:Inter,sans-serif;font-size:15px;color:var(--muted);font-weight:400}
+.plan ul{list-style:none;padding:0;margin:18px 0 24px;color:var(--muted);font-size:15px;line-height:2}
+.plan .btn{width:100%;justify-content:center}
+.plan.pro{background:var(--ink);color:#fff;border-color:var(--ink)}
+.plan.pro ul,.plan.pro .price small{color:#bdb9ae}
+.tag{float:right;font-size:12px;font-weight:600;background:var(--accent);color:#fff;padding:4px 10px;border-radius:999px}
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+.feat .dot{width:44px;height:44px;border-radius:12px;background:#fbe6dc;display:grid;place-items:center;color:var(--accent-dark);font-weight:700;margin-bottom:16px}
+.feat h3{margin:0 0 8px;font-size:19px;font-weight:600}
+.feat p{margin:0;color:var(--muted);line-height:1.6}
+footer{border-top:1px solid var(--line);padding:32px 0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav><a class="brand" href="#">Fieldnote</a><div class="links"><a href="#">Features</a><a href="#pricing">Pricing</a><a href="#">Blog</a></div><a class="btn btn-ghost" href="#">Sign in</a></nav>
+<div class="hero">
+  <div>
+    <span class="eyebrow">New: offline sync</span>
+    <h1>Notes that keep up with you.</h1>
+    <p class="lead">Write anywhere, find anything. Fieldnote keeps your ideas in one calm place, on every device.</p>
+    <div class="cta"><a class="btn btn-main" href="#">Start for free</a><a class="btn btn-ghost" href="#">See how it works</a></div>
+  </div>
+  <div class="hero-pic" role="img" aria-label="Wildflowers in a field"></div>
+</div>
+</div>
+<section id="features"><div class="wrap">
+<h2>Built for busy minds</h2><p class="sub">Three things we got right.</p>
+<div class="feats">
+<div class="feat"><div class="dot">1</div><h3>Instant search</h3><p>Every word you've written, found as you type.</p></div>
+<div class="feat"><div class="dot">2</div><h3>Works offline</h3><p>On a plane or a mountain. It syncs when you're back.</p></div>
+<div class="feat"><div class="dot">3</div><h3>Private by default</h3><p>End-to-end encrypted. Only you hold the key.</p></div>
+</div></div></section>
+<section id="pricing"><div class="wrap">
+<h2>Simple plans for every notebook</h2><p class="sub">Start free. Upgrade when your notes outgrow you.</p>
+<div class="plans">
+<div class="plan"><h3>Starter</h3><div class="price">$0 <small>/ month</small></div><ul><li>100 notes</li><li>Sync on 2 devices</li></ul><a class="btn btn-ghost" href="#">Get started</a></div>
+<div class="plan pro"><h3>Pro <span class="tag">Most popular</span></h3><div class="price">$8 <small>/ month</small></div><ul><li>Unlimited notes</li><li>Offline and search</li></ul><a class="btn btn-main" href="#">Try Pro free</a></div>
+<div class="plan"><h3>Team</h3><div class="price">$14 <small>/ seat</small></div><ul><li>Shared notebooks</li><li>Admin controls</li></ul><a class="btn btn-ghost" href="#">Contact sales</a></div>
+</div></div></section>
+<footer><div class="wrap">© 2026 Fieldnote. A made-up company for this demo.</div></footer>
+</body>
+</html>

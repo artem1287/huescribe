@@ -1,0 +1,1607 @@
+[
+ {
+  "id": "78efb9e314",
+  "kind": "text",
+  "text": "Huescribe: turn any website design into an AI prompt"
+ },
+ {
+  "id": "16e4e1d844",
+  "kind": "attr",
+  "text": "Chrome extension for vibe coding: click any part of a website and get an AI prompt with its colors, fonts, layout and motion for Claude Code, Cursor or Lovable."
+ },
+ {
+  "id": "82c4bad7ea",
+  "kind": "attr",
+  "text": "Huescribe: see a design you love? Bring it to your own site."
+ },
+ {
+  "id": "21798d91d6",
+  "kind": "html",
+  "text": "See a design you love? Bring it to your own site."
+ },
+ {
+  "id": "a001237727",
+  "kind": "html",
+  "text": "Pick the parts you like on any website and get a prompt for Claude Code, Cursor, Lovable, v0 or Bolt."
+ },
+ {
+  "id": "4ea4b71c09",
+  "kind": "html",
+  "text": "Add Huescribe to Chrome"
+ },
+ {
+  "id": "ee5a2dad0a",
+  "kind": "html",
+  "text": "Watch a quick demo"
+ },
+ {
+  "id": "b7b2e357ec",
+  "kind": "attr",
+  "text": "Animation: someone picks three things on a pricing page with Huescribe (the pricing cards for their colors and layout, the headline for its fonts, and the Monthly/Yearly switch, whose movement it records), switches the AI app to Cursor, copies the prompt and pastes it into Cursor, which updates their own pricing page."
+ },
+ {
+  "id": "32df26fe35",
+  "kind": "html",
+  "text": "Huescribe in use"
+ },
+ {
+  "id": "63e71f0282",
+  "kind": "html",
+  "text": "Hover to pause"
+ },
+ {
+  "id": "c7dfb6f1d9",
+  "kind": "html",
+  "text": "Paused"
+ },
+ {
+  "id": "ecb50d90bd",
+  "kind": "html",
+  "text": "⟨0⟩⟨/0⟩Fieldnote"
+ },
+ {
+  "id": "0a391d9f06",
+  "kind": "html",
+  "text": "Features⟨0⟩Pricing⟨/0⟩⟨1⟩Blog⟨/1⟩⟨2⟩Sign in⟨/2⟩"
+ },
+ {
+  "id": "3a2d810812",
+  "kind": "html",
+  "text": "⟨0⟩New⟨/0⟩Offline mode is here →"
+ },
+ {
+  "id": "7982edeccb",
+  "kind": "html",
+  "text": "Simple plans for every notebook."
+ },
+ {
+  "id": "cc54629d1c",
+  "kind": "html",
+  "text": "Start free. Upgrade when your notes outgrow you."
+ },
+ {
+  "id": "d31edb7b8a",
+  "kind": "html",
+  "text": "Monthly"
+ },
+ {
+  "id": "e0dd371d06",
+  "kind": "html",
+  "text": "Yearly ⟨0⟩−20%⟨/0⟩"
+ },
+ {
+  "id": "438226dccf",
+  "kind": "html",
+  "text": "Starter"
+ },
+ {
+  "id": "9d508feaf7",
+  "kind": "html",
+  "text": "$0⟨0⟩ / month⟨/0⟩"
+ },
+ {
+  "id": "794569b7b0",
+  "kind": "html",
+  "text": "100 notes⟨0/⟩Sync on 2 devices"
+ },
+ {
+  "id": "90e40d5043",
+  "kind": "html",
+  "text": "Get started"
+ },
+ {
+  "id": "e4ff8b6d00",
+  "kind": "html",
+  "text": "Pro ⟨0⟩Most popular⟨/0⟩"
+ },
+ {
+  "id": "7eaa4ad85e",
+  "kind": "html",
+  "text": "$8⟨0⟩ / month⟨/0⟩"
+ },
+ {
+  "id": "40ae6ee1e1",
+  "kind": "html",
+  "text": "$6⟨0⟩ / month⟨/0⟩"
+ },
+ {
+  "id": "9972b20773",
+  "kind": "html",
+  "text": "Unlimited notes⟨0/⟩Offline and search"
+ },
+ {
+  "id": "64b274554e",
+  "kind": "html",
+  "text": "Try Pro free"
+ },
+ {
+  "id": "218887269a",
+  "kind": "html",
+  "text": "Team"
+ },
+ {
+  "id": "9e552e581e",
+  "kind": "html",
+  "text": "$14⟨0⟩ / seat⟨/0⟩"
+ },
+ {
+  "id": "4d7d36be1b",
+  "kind": "html",
+  "text": "$11⟨0⟩ / seat⟨/0⟩"
+ },
+ {
+  "id": "4c328465fc",
+  "kind": "html",
+  "text": "Shared notebooks⟨0/⟩Admin controls"
+ },
+ {
+  "id": "356d5729f4",
+  "kind": "html",
+  "text": "Contact sales"
+ },
+ {
+  "id": "26823c4a66",
+  "kind": "html",
+  "text": "Loved by 40,000 writers"
+ },
+ {
+  "id": "8b1b53f8f4",
+  "kind": "html",
+  "text": "My list"
+ },
+ {
+  "id": "04e479d204",
+  "kind": "html",
+  "text": "fieldnote.app · ⟨0⟩⟨1⟩Claude Code ⌄⟨/1⟩⟨2⟩Cursor ⌄⟨/2⟩⟨/0⟩"
+ },
+ {
+  "id": "d8ed2844b8",
+  "kind": "html",
+  "text": "⟨0⟩Click anything⟨/0⟩ on the page"
+ },
+ {
+  "id": "a1b1d7b45e",
+  "kind": "html",
+  "text": "Your list is empty"
+ },
+ {
+  "id": "39b83c444c",
+  "kind": "html",
+  "text": "Nothing here yet. Click something you like on the page and it shows up here."
+ },
+ {
+  "id": "e88f4baa93",
+  "kind": "html",
+  "text": "Section: pricing cards"
+ },
+ {
+  "id": "7103306cc4",
+  "kind": "html",
+  "text": "Colors · Layout"
+ },
+ {
+  "id": "1cbf15a1fb",
+  "kind": "html",
+  "text": "Heading: Simple plans…"
+ },
+ {
+  "id": "ffe688a501",
+  "kind": "html",
+  "text": "Fonts"
+ },
+ {
+  "id": "ea113121cf",
+  "kind": "html",
+  "text": "Switch: Monthly / Yearly"
+ },
+ {
+  "id": "3ae35422e9",
+  "kind": "html",
+  "text": "Motion · On click"
+ },
+ {
+  "id": "dcf5b41b80",
+  "kind": "html",
+  "text": "Copy prompt"
+ },
+ {
+  "id": "ec743be97d",
+  "kind": "html",
+  "text": "Copy prompt (1 part)"
+ },
+ {
+  "id": "7e2466478c",
+  "kind": "html",
+  "text": "Copy prompt (2 parts)"
+ },
+ {
+  "id": "38b87c2695",
+  "kind": "html",
+  "text": "Copy prompt (3 parts)"
+ },
+ {
+  "id": "fea238d8d2",
+  "kind": "html",
+  "text": "What do you want from it?"
+ },
+ {
+  "id": "7b688be399",
+  "kind": "html",
+  "text": "fieldnote.app · ⟨0⟩⟨1⟩Claude Code ⌄⟨/1⟩⟨/0⟩"
+ },
+ {
+  "id": "15bc4a4d6c",
+  "kind": "html",
+  "text": "Section: pricing cards (3 cards)"
+ },
+ {
+  "id": "88d5e4cac1",
+  "kind": "html",
+  "text": "Colors"
+ },
+ {
+  "id": "972ad8d8a5",
+  "kind": "html",
+  "text": "Layout"
+ },
+ {
+  "id": "e040db2b7f",
+  "kind": "html",
+  "text": "Motion"
+ },
+ {
+  "id": "8ddda9c0f1",
+  "kind": "html",
+  "text": "Single parts instead (its gradient, hovers…)"
+ },
+ {
+  "id": "a9b320a612",
+  "kind": "html",
+  "text": "Turn on at least one"
+ },
+ {
+  "id": "1164a5a2e4",
+  "kind": "html",
+  "text": "Add to my list"
+ },
+ {
+  "id": "ddea5361b0",
+  "kind": "html",
+  "text": "Heading: Simple plans for every notebook."
+ },
+ {
+  "id": "9b98e1a000",
+  "kind": "html",
+  "text": "Recording"
+ },
+ {
+  "id": "85990077d0",
+  "kind": "html",
+  "text": "Press it on the page"
+ },
+ {
+  "id": "fd876bcc29",
+  "kind": "html",
+  "text": "1 movement caught"
+ },
+ {
+  "id": "0b64f11837",
+  "kind": "html",
+  "text": "⟨0⟩⟨1⟩⟨/1⟩⟨/0⟩Slide · On click"
+ },
+ {
+  "id": "77dfd2135f",
+  "kind": "html",
+  "text": "Cancel"
+ },
+ {
+  "id": "9e253470c8",
+  "kind": "html",
+  "text": "Stop"
+ },
+ {
+  "id": "313f8cfe2c",
+  "kind": "html",
+  "text": "Copied to your clipboard"
+ },
+ {
+  "id": "abbdb5d4d5",
+  "kind": "html",
+  "text": "3 parts · 6,240 characters"
+ },
+ {
+  "id": "8ee8ba4acb",
+  "kind": "html",
+  "text": "Open Cursor"
+ },
+ {
+  "id": "65d6941339",
+  "kind": "html",
+  "text": "Paste: ⟨0⟩⌘⟨/0⟩⟨1⟩V⟨/1⟩ and send"
+ },
+ {
+  "id": "dbeec24bcd",
+  "kind": "html",
+  "text": "Your list is empty again, ready for the next idea."
+ },
+ {
+  "id": "0e391ec7e2",
+  "kind": "html",
+  "text": "Copy again"
+ },
+ {
+  "id": "39fc721248",
+  "kind": "html",
+  "text": "Undo"
+ },
+ {
+  "id": "25e619f54e",
+  "kind": "html",
+  "text": "⟨0⟩&lt;where_on_my_site&gt;⟨/0⟩my pricing page⟨1⟩&lt;/where…&gt;⟨/1⟩"
+ },
+ {
+  "id": "69a6b9278c",
+  "kind": "html",
+  "text": "3 equal columns, 12px apart; the middle one is dark"
+ },
+ {
+  "id": "861d0229fc",
+  "kind": "html",
+  "text": "headings: Georgia 28px, letter spacing -0.02em"
+ },
+ {
+  "id": "549d81b124",
+  "kind": "html",
+  "text": "switch: the knob slides 250ms, ease-out, on click"
+ },
+ {
+  "id": "7ecaee31df",
+  "kind": "html",
+  "text": "Done. Your pricing page now has three equal columns, Georgia headings and a switch that slides on click."
+ },
+ {
+  "id": "f907ed3dc8",
+  "kind": "html",
+  "text": "Works with your AI app"
+ },
+ {
+  "id": "2d00aded0e",
+  "kind": "html",
+  "text": "Names are trademarks of their owners. Huescribe isn't affiliated with or endorsed by them."
+ },
+ {
+  "id": "1dd6a17cb4",
+  "kind": "html",
+  "text": "How it works"
+ },
+ {
+  "id": "beb5c0d97b",
+  "kind": "html",
+  "text": "Pick: more detail"
+ },
+ {
+  "id": "bbfa773e5a",
+  "kind": "attr",
+  "text": "Close"
+ },
+ {
+  "id": "cea5c3db08",
+  "kind": "html",
+  "text": "01 · Pick"
+ },
+ {
+  "id": "75b74d49ae",
+  "kind": "html",
+  "text": "Click what you like."
+ },
+ {
+  "id": "fdf030f6e8",
+  "kind": "html",
+  "text": "Open the panel on any site. An outline shows what you’re about to pick."
+ },
+ {
+  "id": "79cbc5eb67",
+  "kind": "html",
+  "text": "Click"
+ },
+ {
+  "id": "e87fa387db",
+  "kind": "html",
+  "text": "Pick a button, a card, a whole section."
+ },
+ {
+  "id": "3f94b3cebb",
+  "kind": "html",
+  "text": "Grow to the section around it, or back."
+ },
+ {
+  "id": "79d0e9dd53",
+  "kind": "html",
+  "text": "Drag"
+ },
+ {
+  "id": "e9dabb66f7",
+  "kind": "html",
+  "text": "Box any area."
+ },
+ {
+  "id": "e9ba4cec15",
+  "kind": "html",
+  "text": "Stop. Your list stays."
+ },
+ {
+  "id": "beeb9a8dba",
+  "kind": "html",
+  "text": "Hover effects count too."
+ },
+ {
+  "id": "71d94a7559",
+  "kind": "html",
+  "text": "⟨0⟩01⟨/0⟩Pick"
+ },
+ {
+  "id": "e80bbbedc5",
+  "kind": "attr",
+  "text": "Huescribe picking the features section of a website in Chrome"
+ },
+ {
+  "id": "29d955dccf",
+  "kind": "html",
+  "text": "Card: Fast"
+ },
+ {
+  "id": "d13e8f8bd6",
+  "kind": "html",
+  "text": "Section: features (3 cards)"
+ },
+ {
+  "id": "0b74b14d84",
+  "kind": "html",
+  "text": "What it read"
+ },
+ {
+  "id": "cc67aa8ab2",
+  "kind": "html",
+  "text": "Inter 600 · 15px"
+ },
+ {
+  "id": "f0dbe4a21e",
+  "kind": "html",
+  "text": "3 columns · gap 24px"
+ },
+ {
+  "id": "50a6e20f21",
+  "kind": "html",
+  "text": "Hover: lifts 4px in 200ms"
+ },
+ {
+  "id": "a9ec8d1a58",
+  "kind": "text",
+  "text": "Section added to your list"
+ },
+ {
+  "id": "8867c88b56",
+  "kind": "html",
+  "text": "anything"
+ },
+ {
+  "id": "9ee6e26a45",
+  "kind": "html",
+  "text": "whole section"
+ },
+ {
+  "id": "43e8fe2a9a",
+  "kind": "html",
+  "text": "⟨0⟩·⟨/0⟩ ⟨1⟩Drag⟨/1⟩ an area"
+ },
+ {
+  "id": "f590ba2d18",
+  "kind": "html",
+  "text": "Choose: more detail"
+ },
+ {
+  "id": "d83159ad29",
+  "kind": "html",
+  "text": "02 · Choose"
+ },
+ {
+  "id": "40c7e54e04",
+  "kind": "html",
+  "text": "Take the colors, skip the fonts."
+ },
+ {
+  "id": "d3d41a743b",
+  "kind": "html",
+  "text": "Turn on only what you need. Your site keeps the rest."
+ },
+ {
+  "id": "5b11e04e3a",
+  "kind": "html",
+  "text": "The palette, shifted a little."
+ },
+ {
+  "id": "0a78082146",
+  "kind": "html",
+  "text": "Sizes and weights, on your own fonts."
+ },
+ {
+  "id": "07778e0ce4",
+  "kind": "html",
+  "text": "Columns and spacing."
+ },
+ {
+  "id": "09e9855303",
+  "kind": "html",
+  "text": "Hovers and animations, with timing."
+ },
+ {
+  "id": "51123f233f",
+  "kind": "html",
+  "text": "Single parts"
+ },
+ {
+  "id": "5b8b9bb2d1",
+  "kind": "html",
+  "text": "One detail, like a gradient."
+ },
+ {
+  "id": "d1979ac83a",
+  "kind": "html",
+  "text": "Press ⟨0⟩⌘⟨/0⟩⟨1⟩↵⟨/1⟩ to add it to your list."
+ },
+ {
+  "id": "9f812beee1",
+  "kind": "html",
+  "text": "⟨0⟩02⟨/0⟩Choose"
+ },
+ {
+  "id": "78aaac5dc7",
+  "kind": "attr",
+  "text": "Huescribe side panel: choosing colors, fonts, layout or motion for a design prompt"
+ },
+ {
+  "id": "71727beef0",
+  "kind": "html",
+  "text": "⟨0⟩⟨1⟩⟨/1⟩⟨2⟩⟨/2⟩⟨3⟩⟨/3⟩⟨4⟩⟨/4⟩⟨/0⟩5 colors"
+ },
+ {
+  "id": "d1a277b5fc",
+  "kind": "html",
+  "text": "Your fonts stay"
+ },
+ {
+  "id": "b00df48081",
+  "kind": "html",
+  "text": "Add to my list⟨0⟩⟨/0⟩⟨1⟩⌘↵⟨/1⟩"
+ },
+ {
+  "id": "4ae1098089",
+  "kind": "text",
+  "text": "Added to your list"
+ },
+ {
+  "id": "75477df98a",
+  "kind": "html",
+  "text": "Paste: more detail"
+ },
+ {
+  "id": "bc12939bef",
+  "kind": "html",
+  "text": "03 · Paste"
+ },
+ {
+  "id": "b936b1d93c",
+  "kind": "html",
+  "text": "One prompt for your AI app."
+ },
+ {
+  "id": "eac20b65d0",
+  "kind": "html",
+  "text": "Pick from as many sites as you like. Huescribe writes it all up as one prompt."
+ },
+ {
+  "id": "2b2de68825",
+  "kind": "html",
+  "text": "Your AI app"
+ },
+ {
+  "id": "179f9e12b2",
+  "kind": "html",
+  "text": "Pick yours at the top of the panel."
+ },
+ {
+  "id": "991367efc1",
+  "kind": "html",
+  "text": "Where it goes"
+ },
+ {
+  "id": "7f07847406",
+  "kind": "html",
+  "text": "Optional. Like “my pricing page”."
+ },
+ {
+  "id": "42fcf338b6",
+  "kind": "html",
+  "text": "My instructions"
+ },
+ {
+  "id": "2f5d191060",
+  "kind": "html",
+  "text": "Notes added to every prompt."
+ },
+ {
+  "id": "68b1491b43",
+  "kind": "html",
+  "text": "Copy the prompt."
+ },
+ {
+  "id": "659bce0b4f",
+  "kind": "html",
+  "text": "Paste it into your AI app."
+ },
+ {
+  "id": "0ff2de9d56",
+  "kind": "html",
+  "text": "Nothing on your site changes until your AI app edits it."
+ },
+ {
+  "id": "46e618a39f",
+  "kind": "html",
+  "text": "⟨0⟩03⟨/0⟩Paste"
+ },
+ {
+  "id": "ba2ef588de",
+  "kind": "html",
+  "text": "Everything you picked, in one prompt."
+ },
+ {
+  "id": "2230da2a5d",
+  "kind": "attr",
+  "text": "Huescribe after the design prompt is on the clipboard, ready to paste into Claude Code"
+ },
+ {
+  "id": "d19597fc29",
+  "kind": "html",
+  "text": "your AI app"
+ },
+ {
+  "id": "5efd64eb58",
+  "kind": "html",
+  "text": "&lt;design_detail id=\"1\" from=\"fieldnote.app\"&gt;"
+ },
+ {
+  "id": "c8725fca09",
+  "kind": "html",
+  "text": "Format: 3 equal columns, gap 12px"
+ },
+ {
+  "id": "917c530b26",
+  "kind": "html",
+  "text": "the middle card is dark; the others light"
+ },
+ {
+  "id": "ef7a533ed1",
+  "kind": "html",
+  "text": "buttons: pills in my accent color"
+ },
+ {
+  "id": "ef645a076a",
+  "kind": "html",
+  "text": "&lt;where_on_my_site&gt;my pricing page"
+ },
+ {
+  "id": "f0e5fd6436",
+  "kind": "html",
+  "text": "Updating your pricing section: three equal cards, the middle one dark, pill buttons in your accent."
+ },
+ {
+  "id": "690db1cc90",
+  "kind": "html",
+  "text": "⟨0⟩⌘⟨/0⟩⟨1⟩V⟨/1⟩ paste and send"
+ },
+ {
+  "id": "1d584fed8b",
+  "kind": "html",
+  "text": "What it reads"
+ },
+ {
+  "id": "8a127ddd03",
+  "kind": "html",
+  "text": "Your words, images and brand stay yours."
+ },
+ {
+  "id": "31c255b5fa",
+  "kind": "html",
+  "text": "Sample sites"
+ },
+ {
+  "id": "abd7cd6611",
+  "kind": "html",
+  "text": "Made-up sites, each with one borrowed detail."
+ },
+ {
+  "id": "7f615258ff",
+  "kind": "attr",
+  "text": "Twelve made-up sample sites, each borrowing one detail from somewhere else: a florist, a finance dashboard, an architecture studio, a coffee roaster, a meditation app, a running club, a parcel tracker, a ceramics shop, a bakery, a music school, a magazine and a solar installer."
+ },
+ {
+  "id": "910c9bcf06",
+  "kind": "html",
+  "text": "Bouquets"
+ },
+ {
+  "id": "e8f6e50e0a",
+  "kind": "html",
+  "text": "Weddings"
+ },
+ {
+  "id": "57d7f743bb",
+  "kind": "html",
+  "text": "Journal"
+ },
+ {
+  "id": "1d75774c0f",
+  "kind": "html",
+  "text": "Order"
+ },
+ {
+  "id": "7562fda8a1",
+  "kind": "html",
+  "text": "Seasonal flowers, Brooklyn"
+ },
+ {
+  "id": "9edb95d67f",
+  "kind": "html",
+  "text": "Flowers picked this morning, at your door by noon."
+ },
+ {
+  "id": "3c45339ed2",
+  "kind": "html",
+  "text": "Hand-tied bouquets from local growers. Free delivery over $60."
+ },
+ {
+  "id": "a718ef9c10",
+  "kind": "html",
+  "text": "Shop bouquets"
+ },
+ {
+  "id": "5697fd85ad",
+  "kind": "html",
+  "text": "Subscriptions"
+ },
+ {
+  "id": "0efc2e6be4",
+  "kind": "html",
+  "text": "Overview"
+ },
+ {
+  "id": "35f8f37b92",
+  "kind": "html",
+  "text": "Invoices"
+ },
+ {
+  "id": "88bc3fe3da",
+  "kind": "html",
+  "text": "Reports"
+ },
+ {
+  "id": "f54d9a047d",
+  "kind": "html",
+  "text": "New invoice"
+ },
+ {
+  "id": "8a2b667b52",
+  "kind": "html",
+  "text": "Revenue · Oct"
+ },
+ {
+  "id": "f8ee57ec86",
+  "kind": "html",
+  "text": "Outstanding"
+ },
+ {
+  "id": "0d098b0fbb",
+  "kind": "html",
+  "text": "Paid on time"
+ },
+ {
+  "id": "280f027401",
+  "kind": "html",
+  "text": "+2 pts"
+ },
+ {
+  "id": "53e890d5f0",
+  "kind": "html",
+  "text": "Projects"
+ },
+ {
+  "id": "5b23bd71b3",
+  "kind": "html",
+  "text": "Studio"
+ },
+ {
+  "id": "b37456c453",
+  "kind": "html",
+  "text": "Contact"
+ },
+ {
+  "id": "93319c0b39",
+  "kind": "html",
+  "text": "Quiet buildings for⟨0/⟩busy places."
+ },
+ {
+  "id": "55de887092",
+  "kind": "html",
+  "text": "Shop"
+ },
+ {
+  "id": "7c9a8664b1",
+  "kind": "html",
+  "text": "Visit"
+ },
+ {
+  "id": "462efad242",
+  "kind": "html",
+  "text": "Cart (2)"
+ },
+ {
+  "id": "cab76927b7",
+  "kind": "html",
+  "text": "New harvest"
+ },
+ {
+  "id": "3fa28da6ca",
+  "kind": "html",
+  "text": "Small-batch coffee, roasted every Tuesday."
+ },
+ {
+  "id": "4e8ca17555",
+  "kind": "html",
+  "text": "Single-origin beans from three farms we visit every year."
+ },
+ {
+  "id": "77f176b6ac",
+  "kind": "html",
+  "text": "Shop beans"
+ },
+ {
+  "id": "cf2a8b0897",
+  "kind": "html",
+  "text": "Huila, Colombia"
+ },
+ {
+  "id": "f72d1ae6d7",
+  "kind": "html",
+  "text": "Cherry · cocoa · $19"
+ },
+ {
+  "id": "fb066df43b",
+  "kind": "html",
+  "text": "Sidama, Ethiopia"
+ },
+ {
+  "id": "8d88b1777a",
+  "kind": "html",
+  "text": "Peach · jasmine · $21"
+ },
+ {
+  "id": "fc338f87a0",
+  "kind": "html",
+  "text": "Features"
+ },
+ {
+  "id": "a0d9bbad5f",
+  "kind": "html",
+  "text": "Pricing"
+ },
+ {
+  "id": "f353421634",
+  "kind": "html",
+  "text": "Get the app"
+ },
+ {
+  "id": "f6aa2a3659",
+  "kind": "html",
+  "text": "Ten calm minutes, every evening."
+ },
+ {
+  "id": "02a6c14ff9",
+  "kind": "html",
+  "text": "Guided wind-downs and a sleep journal that learns what helps you rest."
+ },
+ {
+  "id": "ccffc41478",
+  "kind": "html",
+  "text": "Start free"
+ },
+ {
+  "id": "7128b305fe",
+  "kind": "html",
+  "text": "4.8 ★ App Store"
+ },
+ {
+  "id": "ada6fd3be7",
+  "kind": "html",
+  "text": "Tonight"
+ },
+ {
+  "id": "3caaa4b11f",
+  "kind": "html",
+  "text": "Slow breathing · 10 min"
+ },
+ {
+  "id": "03730e5840",
+  "kind": "html",
+  "text": "Routes"
+ },
+ {
+  "id": "c5497bca58",
+  "kind": "html",
+  "text": "Events"
+ },
+ {
+  "id": "1cb449c112",
+  "kind": "html",
+  "text": "Members"
+ },
+ {
+  "id": "e0d73143de",
+  "kind": "html",
+  "text": "Join"
+ },
+ {
+  "id": "5fc7952d72",
+  "kind": "html",
+  "text": "Saturday 10K⟨0/⟩through the gardens."
+ },
+ {
+  "id": "849b2d7355",
+  "kind": "html",
+  "text": "Save my spot"
+ },
+ {
+  "id": "efb2c66b61",
+  "kind": "html",
+  "text": "⟨0⟩1,240⟨/0⟩ members"
+ },
+ {
+  "id": "9460b85061",
+  "kind": "html",
+  "text": "⟨0⟩38⟨/0⟩ routes"
+ },
+ {
+  "id": "7aaa8fa5d7",
+  "kind": "html",
+  "text": "⟨0⟩Every⟨/0⟩ Saturday, 8 am"
+ },
+ {
+  "id": "dd3b86d1ef",
+  "kind": "html",
+  "text": "Product"
+ },
+ {
+  "id": "68a4194227",
+  "kind": "html",
+  "text": "Docs"
+ },
+ {
+  "id": "624673240e",
+  "kind": "html",
+  "text": "Start shipping"
+ },
+ {
+  "id": "338a2a300a",
+  "kind": "html",
+  "text": "Shipping API"
+ },
+ {
+  "id": "2fcafabbd5",
+  "kind": "html",
+  "text": "Labels, tracking and returns in one call."
+ },
+ {
+  "id": "a5d8d179a5",
+  "kind": "html",
+  "text": "Connect 40+ carriers and ship from your store in an afternoon."
+ },
+ {
+  "id": "1c5be06989",
+  "kind": "html",
+  "text": "Get an API key"
+ },
+ {
+  "id": "d4a74b503a",
+  "kind": "html",
+  "text": "Read the docs"
+ },
+ {
+  "id": "2cde592ec5",
+  "kind": "html",
+  "text": "Order #4821"
+ },
+ {
+  "id": "145bcd6306",
+  "kind": "html",
+  "text": "Label created"
+ },
+ {
+  "id": "6c972d36c1",
+  "kind": "html",
+  "text": "Picked up · Denver"
+ },
+ {
+  "id": "63b0b575c4",
+  "kind": "html",
+  "text": "In transit"
+ },
+ {
+  "id": "111fb99798",
+  "kind": "html",
+  "text": "Out for delivery"
+ },
+ {
+  "id": "3a65e770b2",
+  "kind": "html",
+  "text": "Women"
+ },
+ {
+  "id": "a9b53b05c3",
+  "kind": "html",
+  "text": "Men"
+ },
+ {
+  "id": "0028d743eb",
+  "kind": "html",
+  "text": "Sale"
+ },
+ {
+  "id": "c14d46629f",
+  "kind": "html",
+  "text": "Bag (1)"
+ },
+ {
+  "id": "f68c8e8360",
+  "kind": "html",
+  "text": "Swimwear made for long summers."
+ },
+ {
+  "id": "57f5f5efbc",
+  "kind": "html",
+  "text": "Menu"
+ },
+ {
+  "id": "cded093321",
+  "kind": "html",
+  "text": "Orders"
+ },
+ {
+  "id": "fbc46214fe",
+  "kind": "html",
+  "text": "Pre-order"
+ },
+ {
+  "id": "b5b4daa2c0",
+  "kind": "html",
+  "text": "Bakery · Portland"
+ },
+ {
+  "id": "a380abfdad",
+  "kind": "html",
+  "text": "Bread out of the oven at 7, gone by noon."
+ },
+ {
+  "id": "8cff6986da",
+  "kind": "html",
+  "text": "Order tonight, pick up warm tomorrow morning."
+ },
+ {
+  "id": "492d3f8e95",
+  "kind": "html",
+  "text": "See today’s bakes"
+ },
+ {
+  "id": "955384150e",
+  "kind": "html",
+  "text": "Country sourdough"
+ },
+ {
+  "id": "350e85f1c5",
+  "kind": "html",
+  "text": "Cardamom bun"
+ },
+ {
+  "id": "90c62d4dab",
+  "kind": "html",
+  "text": "Rye &amp; seed loaf"
+ },
+ {
+  "id": "ba2169d955",
+  "kind": "html",
+  "text": "Almond croissant"
+ },
+ {
+  "id": "cb9ce97bfc",
+  "kind": "html",
+  "text": "Lessons"
+ },
+ {
+  "id": "f2604f9b72",
+  "kind": "html",
+  "text": "Teachers"
+ },
+ {
+  "id": "994914ceb8",
+  "kind": "html",
+  "text": "Recitals"
+ },
+ {
+  "id": "9c36fd43f3",
+  "kind": "html",
+  "text": "Book a trial"
+ },
+ {
+  "id": "b994372f2a",
+  "kind": "html",
+  "text": "Music school"
+ },
+ {
+  "id": "25083798c6",
+  "kind": "html",
+  "text": "Learn the piano you always meant to."
+ },
+ {
+  "id": "3dca0af914",
+  "kind": "html",
+  "text": "One-to-one lessons for adults and kids, in person or online."
+ },
+ {
+  "id": "c6bc2e5e9b",
+  "kind": "html",
+  "text": "⟨0⟩Mon · 5 pm⟨/0⟩Beginner piano"
+ },
+ {
+  "id": "239a88a02e",
+  "kind": "html",
+  "text": "⟨0⟩Wed · 6 pm⟨/0⟩Jazz harmony"
+ },
+ {
+  "id": "32fa9f9fa6",
+  "kind": "html",
+  "text": "⟨0⟩Sat · 10 am⟨/0⟩Kids choir"
+ },
+ {
+  "id": "30ce4cb25f",
+  "kind": "html",
+  "text": "Issues"
+ },
+ {
+  "id": "48561a57cf",
+  "kind": "html",
+  "text": "Essays"
+ },
+ {
+  "id": "2621c6fd51",
+  "kind": "html",
+  "text": "Archive"
+ },
+ {
+  "id": "d6981f7476",
+  "kind": "html",
+  "text": "Subscribe"
+ },
+ {
+  "id": "e379b3b2c8",
+  "kind": "html",
+  "text": "Issue 12 · Mountains"
+ },
+ {
+  "id": "93b2ce46ec",
+  "kind": "html",
+  "text": "The last shepherds of the high meadows"
+ },
+ {
+  "id": "5c096dd7c1",
+  "kind": "html",
+  "text": "Essay"
+ },
+ {
+  "id": "6f9b04d3b1",
+  "kind": "html",
+  "text": "Why we still walk"
+ },
+ {
+  "id": "4c205e03d1",
+  "kind": "html",
+  "text": "Field notes"
+ },
+ {
+  "id": "862028b049",
+  "kind": "html",
+  "text": "A week without maps"
+ },
+ {
+  "id": "19ad8ec723",
+  "kind": "html",
+  "text": "Interview"
+ },
+ {
+  "id": "dd7c7556ce",
+  "kind": "html",
+  "text": "The botanist who counts snow"
+ },
+ {
+  "id": "b83c4cdafe",
+  "kind": "html",
+  "text": "Reviews"
+ },
+ {
+  "id": "02e3a582bd",
+  "kind": "html",
+  "text": "Get a quote"
+ },
+ {
+  "id": "6699f2b921",
+  "kind": "html",
+  "text": "Home solar"
+ },
+ {
+  "id": "5883e7664a",
+  "kind": "html",
+  "text": "See what your roof could save."
+ },
+ {
+  "id": "5dbc2339c5",
+  "kind": "html",
+  "text": "A free estimate in two minutes, no sales call."
+ },
+ {
+  "id": "d2c5a75f6b",
+  "kind": "html",
+  "text": "Monthly power bill"
+ },
+ {
+  "id": "d259d22f79",
+  "kind": "html",
+  "text": "Estimated savings"
+ },
+ {
+  "id": "bb78068ef1",
+  "kind": "html",
+  "text": "$1,310 / year"
+ },
+ {
+  "id": "9a1fc1731f",
+  "kind": "html",
+  "text": "Questions"
+ },
+ {
+  "id": "021b0b4136",
+  "kind": "text",
+  "text": "What does Huescribe do?"
+ },
+ {
+  "id": "91548871c1",
+  "kind": "html",
+  "text": "It’s a Chrome extension. Click part of any website and it writes a prompt your AI app can use to build that design on your site."
+ },
+ {
+  "id": "48d61bdd8b",
+  "kind": "text",
+  "text": "Is it free?"
+ },
+ {
+  "id": "b1710cd49a",
+  "kind": "html",
+  "text": "Yes. There’s no plan to buy and no usage limit, and you don’t need an API key."
+ },
+ {
+  "id": "e9e1b03e84",
+  "kind": "text",
+  "text": "Why not just give my AI app a screenshot?"
+ },
+ {
+  "id": "e4f1c8e8a3",
+  "kind": "html",
+  "text": "A screenshot shows the look but not the numbers, so the AI guesses colors, font sizes, spacing and hover timing. Huescribe reads the exact values from the page, and can add the picture too."
+ },
+ {
+  "id": "1e1fcb4ce7",
+  "kind": "text",
+  "text": "Do I need to know how to code?"
+ },
+ {
+  "id": "b268f0d8bd",
+  "kind": "html",
+  "text": "No. Your AI app does the building."
+ },
+ {
+  "id": "c6d6b2d0b9",
+  "kind": "text",
+  "text": "Which AI apps does it work with?"
+ },
+ {
+  "id": "72dcc5247c",
+  "kind": "html",
+  "text": "Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0 and Bolt. The prompt is plain text, so Codex, Replit or any other app works too."
+ },
+ {
+  "id": "f886eb7bca",
+  "kind": "text",
+  "text": "Does it work with React, Tailwind or my framework?"
+ },
+ {
+  "id": "d2b3cd14ad",
+  "kind": "html",
+  "text": "Yes. The prompt describes the design, not code, and tells your AI app to build it with what your project already uses."
+ },
+ {
+  "id": "08c0183115",
+  "kind": "text",
+  "text": "Is it OK to borrow design from another site?"
+ },
+ {
+  "id": "d4737552b1",
+  "kind": "html",
+  "text": "Huescribe takes ideas, not pages. It describes colors, sizes, spacing and motion, never copies text, images, logos or code, and tells your AI app to keep your own words and brand. Use it for inspiration, not to clone a whole site."
+ },
+ {
+  "id": "7030a0abec",
+  "kind": "text",
+  "text": "Can it copy hover effects and animations?"
+ },
+ {
+  "id": "bb58ce30e8",
+  "kind": "html",
+  "text": "Yes. Turn on Motion and the prompt includes timing, easing and what triggers each one."
+ },
+ {
+  "id": "a764d343dc",
+  "kind": "text",
+  "text": "Does it work on any website?"
+ },
+ {
+  "id": "024a1fb9f2",
+  "kind": "html",
+  "text": "On any page you open in Chrome, including pages you’re signed in to. Chrome doesn’t let extensions run on its own pages or the Chrome Web Store."
+ },
+ {
+  "id": "a4a651ae45",
+  "kind": "text",
+  "text": "Does it need an account or an API key?"
+ },
+ {
+  "id": "62bfaa040a",
+  "kind": "html",
+  "text": "No API key. You sign in once with Google, and your name and email stay in your browser. Nothing is sent to a server; the prompt goes to your clipboard."
+ },
+ {
+  "id": "ed67b875c5",
+  "kind": "text",
+  "text": "Can I save the prompt as a DESIGN.md or Cursor rule?"
+ },
+ {
+  "id": "60a7e779ce",
+  "kind": "html",
+  "text": "Yes. It’s plain text, so save it anywhere your AI app reads instructions."
+ },
+ {
+  "id": "be22f86729",
+  "kind": "text",
+  "text": "What if the result isn’t right?"
+ },
+ {
+  "id": "41569ac95b",
+  "kind": "html",
+  "text": "Tell your AI app what to change, or adjust your picks and copy a new prompt."
+ },
+ {
+  "id": "13ade70c67",
+  "kind": "html",
+  "text": "Show all questions"
+ },
+ {
+  "id": "d94dfbe577",
+  "kind": "html",
+  "text": "Show fewer"
+ },
+ {
+  "id": "440b524f45",
+  "kind": "html",
+  "text": "Borrow the good parts."
+ },
+ {
+  "id": "451ba418e8",
+  "kind": "html",
+  "text": "Add it to Chrome and copy your first prompt."
+ },
+ {
+  "id": "36462a5ba5",
+  "kind": "attr",
+  "text": "The Huescribe side panel with a picked website section in the list, ready to become one AI prompt"
+ },
+ {
+  "id": "1be7051588",
+  "kind": "html",
+  "text": "top of my homepage"
+ },
+ {
+  "id": "45193511c2",
+  "kind": "html",
+  "text": "my 3 best sellers, each with a price"
+ },
+ {
+  "id": "b7cb47e2ae",
+  "kind": "html",
+  "text": "The fine print"
+ },
+ {
+  "id": "05e8d1a353",
+  "kind": "html",
+  "text": "Trademarks"
+ },
+ {
+  "id": "2caa001424",
+  "kind": "html",
+  "text": "Claude, Claude Code, Cursor, ChatGPT, Gemini, Windsurf, Copilot, Lovable, v0, Bolt, Google Chrome and other names are trademarks of their owners. Huescribe isn’t affiliated with or endorsed by any of them."
+ },
+ {
+  "id": "f3e625fc75",
+  "kind": "html",
+  "text": "Using what you borrow"
+ },
+ {
+  "id": "4a1a9c3889",
+  "kind": "html",
+  "text": "Huescribe describes design. It never copies a site’s text, photos, logos or code. You’re responsible for what you put on your site."
+ },
+ {
+  "id": "cf01481f62",
+  "kind": "html",
+  "text": "Privacy"
+ },
+ {
+  "id": "df20980a9a",
+  "kind": "html",
+  "text": "Everything runs in your browser. Sign in once with Google; your name and email stay on your device, and nothing is sent to a server. This website sets no cookies. Details: ⟨0⟩privacy policy⟨/0⟩."
+ },
+ {
+  "id": "ddf42f269b",
+  "kind": "html",
+  "text": "Terms and warranty"
+ },
+ {
+  "id": "983e0525d9",
+  "kind": "html",
+  "text": "Provided as is, without warranty. AI apps make mistakes, so review changes before you publish. Full terms: ⟨0⟩terms of use⟨/0⟩."
+ },
+ {
+  "id": "bfac50d642",
+  "kind": "html",
+  "text": "Credits"
+ },
+ {
+  "id": "3ee250dcb9",
+  "kind": "html",
+  "text": "Flower photos on Unsplash (Unsplash License) by Nhi D, Daniel Klein, Dmytro Korobka, Angel Luciano and Tracy Brower. Fonts: Newsreader, Inter and JetBrains Mono, under the SIL Open Font License."
+ },
+ {
+  "id": "92476e7ad2",
+  "kind": "html",
+  "text": "Questions or takedown requests: use the Support tab on ⟨0⟩Huescribe’s Chrome Web Store page⟨/0⟩."
+ },
+ {
+  "id": "de3e1f8a4e",
+  "kind": "html",
+  "text": "© 2026 Huescribe. ⟨0⟩Terms of use⟨/0⟩ · ⟨1⟩Privacy policy⟨/1⟩."
+ },
+ {
+  "id": "bb7a88ffe6",
+  "kind": "html",
+  "text": "Updated ⟨0⟩November 19, 2026⟨/0⟩ · ⟨1⟩The fine print⟨/1⟩"
+ },
+ {
+  "id": "cb4636749e",
+  "kind": "html",
+  "text": "⟨0⟩⟨1⟩⟨/1⟩Hue⟨/0⟩scribe"
+ },
+ {
+  "id": "89b86ab0e6",
+  "kind": "attr",
+  "text": "Language"
+ },
+ {
+  "id": "4ff37f868e",
+  "kind": "attr",
+  "text": "Huescribe is a Chrome extension that turns any website’s design into an AI prompt for vibe coding."
+ },
+ {
+  "id": "10ac2b72be",
+  "kind": "attr",
+  "text": "How to turn a website design you like into an AI prompt"
+ },
+ {
+  "id": "8a1b654587",
+  "kind": "attr",
+  "text": "Pick parts of any website with the Huescribe Chrome extension and paste them into your AI app as one prompt."
+ },
+ {
+  "id": "d47509d600",
+  "kind": "attr",
+  "text": "Google Chrome with the Huescribe extension"
+ },
+ {
+  "id": "7f59f9facb",
+  "kind": "attr",
+  "text": "An AI app such as Claude Code, Cursor, Lovable, v0 or Bolt"
+ },
+ {
+  "id": "7762902d04",
+  "kind": "attr",
+  "text": "Click what you like"
+ },
+ {
+  "id": "e113358c03",
+  "kind": "attr",
+  "text": "Open the Huescribe panel on any site and click a button, a card or a whole section."
+ },
+ {
+  "id": "d9b6b1c67b",
+  "kind": "attr",
+  "text": "Choose what to take"
+ },
+ {
+  "id": "54e8f2c930",
+  "kind": "attr",
+  "text": "Turn on colors, fonts, layout or motion. Your site keeps the rest."
+ },
+ {
+  "id": "e125d0380f",
+  "kind": "attr",
+  "text": "Paste the prompt"
+ },
+ {
+  "id": "735753d1bc",
+  "kind": "attr",
+  "text": "Copy one prompt for everything you picked and paste it into your AI app."
+ },
+ {
+  "id": "a794a07107",
+  "kind": "attr",
+  "text": "Pick any part of a website: a section, a button, a hover effect or an animation"
+ },
+ {
+  "id": "6c19bbab53",
+  "kind": "attr",
+  "text": "Choose what to take: color palette, fonts and typography, layout and spacing, or motion"
+ },
+ {
+  "id": "b9d97fdffb",
+  "kind": "attr",
+  "text": "Writes one design prompt for Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0 or Bolt"
+ },
+ {
+  "id": "e366ecc96e",
+  "kind": "attr",
+  "text": "Runs in the browser; sign in with Google, nothing sent to a server"
+ }
+]

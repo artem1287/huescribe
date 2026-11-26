@@ -1,0 +1,38 @@
+[
+ [
+  "intro",
+  "See a website design you love? Huescribe turns it into a prompt for your AI app."
+ ],
+ [
+  "hover",
+  "Open the side panel and point at anything. An outline shows what you're about to pick."
+ ],
+ [
+  "section",
+  "Press the up arrow to grow it to a whole section. Then click."
+ ],
+ [
+  "choose",
+  "Choose what you want from it. Colors, fonts, layout, or motion."
+ ],
+ [
+  "button",
+  "Pick a button, and it even catches the hover and press effects."
+ ],
+ [
+  "button2",
+  "It tests the hover and press for you, then shows each effect with a preview."
+ ],
+ [
+  "list",
+  "Your list collects parts from any site. Say where each one goes on yours."
+ ],
+ [
+  "copy",
+  "Then copy one prompt, and paste it into Claude Code, Cursor, or Lovable."
+ ],
+ [
+  "outro",
+  "Huescribe. Borrow the good parts."
+ ]
+]

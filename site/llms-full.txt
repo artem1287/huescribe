@@ -1,0 +1,136 @@
+# Huescribe: turn any website design into an AI prompt
+
+> Chrome extension for vibe coding: click any part of a website and get an AI prompt with its colors, fonts, layout and motion for Claude Code, Cursor or Lovable.
+
+## See a design you love? Bring it to your own site.
+
+Pick the parts you like on any website and get a prompt for Claude Code, Cursor, Lovable, v0 or Bolt.
+
+## Works with your AI app
+
+Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0, Bolt.
+Names are trademarks of their owners. Huescribe isn't affiliated with or endorsed by them.
+
+## How it works
+
+### Click what you like.
+
+Open the panel on any site. An outline shows what you’re about to pick.
+- **Click**: Pick a button, a card, a whole section.
+- **↑ ↓**: Grow to the section around it, or back.
+- **Drag**: Box any area.
+- **Esc**: Stop. Your list stays.
+Hover effects count too.
+
+### Take the colors, skip the fonts.
+
+Turn on only what you need. Your site keeps the rest.
+- **Colors**: The palette, shifted a little.
+- **Fonts**: Sizes and weights, on your own fonts.
+- **Layout**: Columns and spacing.
+- **Motion**: Hovers and animations, with timing.
+- **Single parts**: One detail, like a gradient.
+Press ⌘ ↵ to add it to your list.
+
+### One prompt for your AI app.
+
+Pick from as many sites as you like. Huescribe writes it all up as one prompt.
+- **Your AI app**: Pick yours at the top of the panel.
+- **Where it goes**: Optional. Like “my pricing page”.
+- **My instructions**: Notes added to every prompt.
+- **⌘ ↵**: Copy the prompt.
+- **⌘ V**: Paste it into your AI app.
+Nothing on your site changes until your AI app edits it.
+Everything you picked, in one prompt.
+
+### What it reads
+
+- Colors
+- Fonts
+- Layout
+- Motion
+Your words, images and brand stay yours.
+
+## Sample sites
+
+Made-up sites, each with one borrowed detail.
+
+## Questions
+
+### What does Huescribe do?
+
+It’s a Chrome extension. Click part of any website and it writes a prompt your AI app can use to build that design on your site.
+
+### Is it free?
+
+Yes. There’s no plan to buy and no usage limit, and you don’t need an API key.
+
+### Why not just give my AI app a screenshot?
+
+A screenshot shows the look but not the numbers, so the AI guesses colors, font sizes, spacing and hover timing. Huescribe reads the exact values from the page, and can add the picture too.
+
+### Do I need to know how to code?
+
+No. Your AI app does the building.
+
+### Which AI apps does it work with?
+
+Claude Code, Cursor, ChatGPT, Gemini, Claude, Windsurf, Copilot, Lovable, v0 and Bolt. The prompt is plain text, so Codex, Replit or any other app works too.
+
+### Does it work with React, Tailwind or my framework?
+
+Yes. The prompt describes the design, not code, and tells your AI app to build it with what your project already uses.
+
+### Is it OK to borrow design from another site?
+
+Huescribe takes ideas, not pages. It describes colors, sizes, spacing and motion, never copies text, images, logos or code, and tells your AI app to keep your own words and brand. Use it for inspiration, not to clone a whole site.
+
+### Can it copy hover effects and animations?
+
+Yes. Turn on Motion and the prompt includes timing, easing and what triggers each one.
+
+### Does it work on any website?
+
+On any page you open in Chrome, including pages you’re signed in to. Chrome doesn’t let extensions run on its own pages or the Chrome Web Store.
+
+### Does it need an account or an API key?
+
+No API key. You sign in once with Google, and your name and email stay in your browser. Nothing is sent to a server; the prompt goes to your clipboard.
+
+### Can I save the prompt as a DESIGN.md or Cursor rule?
+
+Yes. It’s plain text, so save it anywhere your AI app reads instructions.
+
+### What if the result isn’t right?
+
+Tell your AI app what to change, or adjust your picks and copy a new prompt.
+
+## Borrow the good parts.
+
+Add it to Chrome and copy your first prompt.
+
+## The fine print
+
+### Trademarks
+
+Claude, Claude Code, Cursor, ChatGPT, Gemini, Windsurf, Copilot, Lovable, v0, Bolt, Google Chrome and other names are trademarks of their owners. Huescribe isn’t affiliated with or endorsed by any of them.
+
+### Using what you borrow
+
+Huescribe describes design. It never copies a site’s text, photos, logos or code. You’re responsible for what you put on your site.
+
+### Privacy
+
+Everything runs in your browser. Sign in once with Google; your name and email stay on your device, and nothing is sent to a server. This website sets no cookies. Details: privacy policy.
+
+### Terms and warranty
+
+Provided as is, without warranty. AI apps make mistakes, so review changes before you publish. Full terms: terms of use.
+
+### Credits
+
+Flower photos on Unsplash (Unsplash License) by Nhi D, Daniel Klein, Dmytro Korobka, Angel Luciano and Tracy Brower. Fonts: Newsreader, Inter and JetBrains Mono, under the SIL Open Font License.
+
+### Contact
+
+Questions or takedown requests: use the Support tab on Huescribe’s Chrome Web Store page.

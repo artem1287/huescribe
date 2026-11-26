@@ -1,11 +1,9 @@
-# Build output: rebuild with homepage/export/build_site.py
-site/
-homepage/out/
-*.zip
-*.crx
+# Intermediate render frames: demo-video/record.py regenerates them (about 218 MB)
+demo-video/frames/
 
 # Keys and local config
 *.pem
+*.crx
 .env
 .env.*
 

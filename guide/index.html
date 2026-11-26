@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptLift: every screen and its structure</title>
+<style>
+  :root {
+    --bg: #fafaf9; --card: #ffffff; --fg: #18181b; --muted: #71717a;
+    --border: #e4e4e7; --accent: #7c3aed; --accent-soft: #f3efff; --code: #f4f4f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #09090b; --card: #141417; --fg: #fafafa; --muted: #a1a1aa;
+            --border: #27272a; --accent: #a78bfa; --accent-soft: #1e1530; --code: #1c1c20; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header.top { max-width: 1100px; margin: 0 auto; padding: 40px 20px 8px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+  nav.toc a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
+              border: 1px solid var(--border); border-radius: 999px; color: var(--fg);
+              text-decoration: none; font-size: 13px; background: var(--card); }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 20px 60px; }
+  section.screen { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+                   gap: 28px; padding: 28px 0; border-top: 1px solid var(--border); }
+  section.screen.wide { grid-template-columns: 1fr; }
+  .shots { display: flex; flex-direction: column; gap: 12px; }
+  figure { margin: 0; }
+  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--border);
+               border-radius: 10px; background: #fff; }
+  figure.panel img { max-width: 400px; }
+  figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .num { display: inline-flex; width: 26px; height: 26px; border-radius: 8px; align-items: center;
+         justify-content: center; background: var(--accent); color: #fff; font-size: 13px;
+         font-weight: 600; margin-right: 8px; vertical-align: 2px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  .when { color: var(--muted); margin: 0 0 14px; }
+  .struct { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; }
+  .struct h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+               color: var(--muted); margin: 0 0 8px; }
+  ol.tree, ol.tree ol { list-style: none; margin: 0; padding: 0; }
+  ol.tree ol { padding-left: 18px; border-left: 1px dashed var(--border); margin: 4px 0 4px 6px; }
+  ol.tree li { padding: 3px 0; }
+  ol.tree b { font-weight: 600; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code);
+         padding: 1px 5px; border-radius: 4px; }
+  .tag { display: inline-block; font-size: 11px; padding: 0 7px; border-radius: 999px;
+         background: var(--accent-soft); color: var(--accent); margin-left: 4px; }
+  .flow { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+          padding: 16px; margin: 18px 0 8px; font-size: 14px; }
+  .flow p { margin: 4px 0; }
+  .pagepair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) {
+    section.screen { grid-template-columns: 1fr; }
+    .pagepair { grid-template-columns: 1fr; }
+    figure.panel img { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>PromptLift: every screen and its structure</h1>
+  <p class="lede">Screenshots from v9.0.0, taken on the test site. Panel screens are at the side panel's 400px width; page shots show what PromptLift draws on the website itself. Under each screen: the blocks it contains, top to bottom, and when each button appears.</p>
+  <div class="flow">
+    <p><b>The whole flow:</b> My list (picking is on) → click anything, ↑ ↓ up to a section, or drag an area → choose Colors · Fonts · Layout · Motion · Everything → Add to my list → Copy prompt (N parts)</p>
+    <p><b>Press/click effects:</b> Pick what to copy → Motion → "Press it" → Recording → What moved → Add to my list</p>
+  </div>
+  <nav class="toc">
+    <a href="#frame">Panel frame</a><a href="#home">1 My list, first time</a><a href="#point">2 Point at anything</a>
+    <a href="#element">3 A thing you clicked</a><a href="#section">4 A section or area</a><a href="#press">5 Press it</a>
+    <a href="#record">6 Recording</a><a href="#moved">7 What moved</a><a href="#list">8 My list</a>
+    <a href="#prompt">The prompt</a><a href="#copied">9 Copied</a><a href="#dark">10 Dark, 320px</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="screen" id="frame">
+  <div class="shots"><figure class="panel"><img src="img/01b-app-menu.png" alt="Which AI app: the one setting"><figcaption>Which AI app: the one setting</figcaption></figure><figure class="panel"><img src="img/01c-more-menu.png" alt="The ⋯ menu"><figcaption>The ⋯ menu</figcaption></figure></div>
+  <div>
+    <h2>The frame every screen shares</h2>
+    <p class="when">The side panel (or a docked window where there is no side panel). Closing it turns PromptLift fully off.</p>
+    <div class="struct"><h3>Header</h3><ol class="tree"><li>Back arrow (on pick screens)</li><li>Logo, screen title; underneath: the site · <b>the AI app</b> (Claude Code ▾), the only setting, remembered</li><li><b>⋯</b>: Open in its own window · Reload the page · Clear my list <span class="tag">when there is something</span> · How it works</li></ol></div><div class="struct" style="margin-top:12px"><h3>Bottom bar</h3><ol class="tree"><li>A short hint (left) and the one main button (right): <b>Add to my list</b> on a pick, <b>Copy prompt (N parts)</b> on the list</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="home">
+  <div class="shots"><figure class="panel"><img src="img/01-first-time.png" alt="First time open"><figcaption>First time open</figcaption></figure><figure class="panel"><img src="img/01a-empty-list.png" alt="After "Got it""><figcaption>After "Got it"</figcaption></figure></div>
+  <div>
+    <h2><span class="num">1</span>My list, first time</h2>
+    <p class="when">Where every session starts. Picking is already on.</p>
+    <div class="struct"><h3>Structure</h3><ol class="tree"><li>Picking status: Click anything on the page… (or <b>Start picking</b> after Esc)</li><li><b>How it works</b> + Got it <span class="tag">first time only; back via ⋯</span></li><li>Empty list: one line</li></ol></div><div class="struct" style="margin-top:12px"><h3>Gone from here</h3><ol class="tree"><li>The "An element / A screen portion" choice (one way of picking now)</li><li>"New site or changing", "what is it" (the AI sees the site, or asks)</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="point">
+  <div class="shots"><figure class=""><img src="img/02-page-hover.png" alt="Hover: what a click picks, with its size"><figcaption>Hover: what a click picks, with its size</figcaption></figure><figure class=""><img src="img/02b-page-up-to-section.png" alt="↑ up to the whole section"><figcaption>↑ up to the whole section</figcaption></figure></div>
+  <div>
+    <h2><span class="num">2</span>Point at anything</h2>
+    <p class="when">On the page, while PromptLift is open.</p>
+    <div class="struct"><h3>On the page</h3><ol class="tree"><li>Bar: Click anything · ↑ ↓ bigger or smaller, up to a whole section · drag over any area · Esc to stop</li><li>Outline that glides, labeled with what it is and its size; "Section: …" once ↑ reaches a whole section</li><li><b>Drag</b>: across sections (taken together) or over part of one (just those pieces)</li><li>After a click the outline pulses; the panel says "Reading Card…" (or "Couldn't read that part")</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="element">
+  <div class="shots"><figure class="panel"><img src="img/03-pick-element.png" alt="A heading with an on-load animation"><figcaption>A heading with an on-load animation</figcaption></figure><figure class="panel"><img src="img/03b-group-switch-and-details.png" alt="Fonts switched on, opened"><figcaption>Fonts switched on, opened</figcaption></figure></div>
+  <div>
+    <h2><span class="num">3</span>Pick what to copy: a thing you clicked</h2>
+    <p class="when">Right after clicking something.</p>
+    <div class="struct"><h3>Panel</h3><ol class="tree"><li>Picture of the pick</li><li>The five choices, each a group: <b>Colors · Fonts · Layout · Motion · Everything</b> <span class="tag">only those with something in them</span><ol><li>The name is a <b>switch</b>: all of it, none, or some (half filled)</li><li>Open a group for single things (one color, one animation)</li></ol></li><li><b>Motion</b> opens by itself: a card per animation with a <b>filmstrip</b> (tap to play on the page), Slow motion, Details; then the scroll result; <b>Press it</b> / <b>Reload</b> <span class="tag">only when they apply</span></li><li>Bottom: Choose what to copy → <b>Add to my list</b></li></ol></div><div class="struct" style="margin-top:12px"><h3>What the switches also decide</h3><ol class="tree"><li>Colors off: an animation's or a text's colors become my site's; on: the original colors stay</li><li>Fonts the same</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="section">
+  <div class="shots"><figure class="panel"><img src="img/04-pick-section.png" alt="A cards section"><figcaption>A cards section</figcaption></figure><figure class=""><img src="img/04b-page-section-picked.png" alt="On the page: the section outlined"><figcaption>On the page: the section outlined</figcaption></figure></div>
+  <div>
+    <h2><span class="num">4</span>Pick what to copy: a whole section or a dragged area</h2>
+    <p class="when">After ↑ to a section and a click, or after dragging.</p>
+    <div class="struct"><h3>Panel</h3><ol class="tree"><li>Picture, and its name (Section: cards section · Sections together: … · Part of …)</li><li>The same choices as chips: <b>Colors</b> (color scheme) · <b>Fonts</b> (font scheme) · <b>Layout</b> (format, layout only, with its position on the page) · <b>Motion</b> (scroll behavior) <span class="tag">only where something reacts to scrolling</span> · <b>Everything</b></li><li><b>Single parts instead</b> <span class="tag">a whole section</span>: takes it apart (its gradient, hovers…)</li><li>Bottom: <b>Add to my list</b> (reads it; scrolls through it for Motion)</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="press">
+  <div class="shots"><figure class="panel"><img src="img/05-press-it.png" alt="A button: "Moves when you press it?""><figcaption>A button: "Moves when you press it?"</figcaption></figure></div>
+  <div>
+    <h2><span class="num">5</span>Press it</h2>
+    <p class="when">In Motion, for buttons and links.</p>
+    <div class="struct"><h3>Rows at the end of Motion</h3><ol class="tree"><li>Scroll check result <span class="tag">always, automatic</span></li><li><b>Moves when you press it?</b> + Press it <span class="tag">things you can press</span></li><li><b>Moves when the page opens?</b> + Reload <span class="tag">when an opening animation was missed</span></li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="record">
+  <div class="shots"><figure class="panel"><img src="img/06-recording.png" alt="Panel"><figcaption>Panel</figcaption></figure><figure class=""><img src="img/06b-page-recording.png" alt="On the page"><figcaption>On the page</figcaption></figure></div>
+  <div>
+    <h2><span class="num">6</span>Recording</h2>
+    <p class="when">After "Press it". Picking pauses.</p>
+    <div class="struct"><h3>Panel</h3><ol class="tree"><li>Callout: Press it on the page</li><li>What has moved so far, live</li><li>Bottom: Cancel → Stop once something moved; finishes by itself after a press</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="moved">
+  <div class="shots"><figure class="panel"><img src="img/07-what-moved.png" alt="A press effect, caught"><figcaption>A press effect, caught</figcaption></figure></div>
+  <div>
+    <h2><span class="num">7</span>What moved</h2>
+    <p class="when">After recording.</p>
+    <div class="struct"><h3>Panel</h3><ol class="tree"><li>The same pick card: Motion with a card per movement and its preview</li><li>Bottom: <b>Add to my list</b></li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="list">
+  <div class="shots"><figure class="panel"><img src="img/08-my-list.png" alt="Two rows"><figcaption>Two rows</figcaption></figure><figure class="panel"><img src="img/08b-row-menu.png" alt="A row's ⋯"><figcaption>A row's ⋯</figcaption></figure><figure class="panel"><img src="img/08c-adjust.png" alt="Adjust, open"><figcaption>Adjust, open</figcaption></figure></div>
+  <div>
+    <h2><span class="num">8</span>My list</h2>
+    <p class="when">After adding: the main screen. Picking stays on.</p>
+    <div class="struct"><h3>Each row</h3><ol class="tree"><li>Number, preview (moving for animations), name, and what it copies ("Colors · Layout")</li><li><b>Where on my site</b> <span class="tag">optional</span>: type it or tap a chip that fits (All h1 headings, Top of homepage…); empty = list order, top to bottom</li><li><b>What should it show?</b> <span class="tag">parts that hold content</span></li><li><b>Adjust</b> (closed): how it should change, quick tweaks + Show on page, exact numbers, Make a new picture from this</li><li><b>⋯</b>: Adjust · Copy just this · Copy picture · Move up / down · Remove</li></ol></div><div class="struct" style="margin-top:12px"><h3>Bottom bar</h3><ol class="tree"><li><b>Copy prompt (N parts)</b>: the whole list, one message. The list stays.</li></ol></div>
+  </div>
+</section>
+
+<section class="screen wide" id="prompt">
+  <div>
+    <h2>The prompt that gets copied</h2>
+    <p class="when">One message for the whole list, shaped for the chosen AI app.</p>
+    <div class="struct"><h3>Structure</h3>
+      <ol class="tree">
+        <li><b>Shaped for the AI app</b>: tagged sections for Claude; Markdown for ChatGPT, Gemini, code editors and site builders; chat apps use files already given, or ask once; site builders get a short opening</li>
+        <li><b>Opening</b>, one for both situations: only these changes, where each says, keep the rest; if there is no site yet, build one top to bottom (own values, ask what it is about, shared variables); look through my project and reuse its fonts, colors, corners and spacing; values exact, not inspiration</li>
+        <li><b>For every detail below</b> <span class="tag">rules that apply to two or more</span>: said once</li>
+        <li><b>&lt;shared_spacing&gt;</b> <span class="tag">2+ layouts</span>: one side padding, content width, section spacing, gaps</li>
+        <li><b>&lt;one_look&gt;</b> <span class="tag">only when the parts disagree</span>: one pair of fonts, one accent, one set of corners, one shadow, one button style, one easing</li>
+        <li><b>&lt;design_detail id="N"&gt;</b> per part: &lt;where_on_my_site&gt;, &lt;what&gt;, &lt;values&gt;, <b>&lt;fit_to_my_site&gt;</b> (colors by role → mine unless Colors was chosen; fonts: where, how to load, keep mine; layouts: keep its place, what goes in it, the color relationships, my edges; color schemes: into my color settings, readable, blended), &lt;content_i_want&gt;, &lt;change_i_want&gt;, &lt;note&gt; (numbered pictures)</li>
+        <li><b>&lt;when_done&gt;</b>: make every change for real; rebuild a layout that differs; end with each detail as old → new; chat apps return the complete file</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="copied">
+  <div class="shots"><figure class="panel"><img src="img/09-copied.png" alt="Copied, with the picture to paste along"><figcaption>Copied, with the picture to paste along</figcaption></figure></div>
+  <div>
+    <h2><span class="num">9</span>Copied</h2>
+    <p class="when">After Copy prompt.</p>
+    <div class="struct"><h3>Panel</h3><ol class="tree"><li>Notice: Copied · paste into Claude Code, with <b>Copy picture 1, 2…</b> for the numbered pictures</li><li>The list, unchanged: change it and copy again</li></ol></div>
+  </div>
+</section>
+
+<section class="screen" id="dark">
+  <div class="shots"><figure class="panel"><img src="img/10-dark-320.png" alt="My list, dark, 320px"><figcaption>My list, dark, 320px</figcaption></figure></div>
+  <div>
+    <h2><span class="num">10</span>Dark theme at 320px</h2>
+    <p class="when">Every screen works down to 320px wide, in light and dark.</p>
+    <div class="struct"><h3>Notes</h3><ol class="tree"><li>Rows wrap; touch targets stay at least 44px</li></ol></div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

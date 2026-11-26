@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logo: Huescribe</title>
+<style>
+@font-face{font-family:Inter;src:url(fonts/inter-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/inter-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/inter-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:Inter;src:url(fonts/inter-700.woff2) format("woff2");font-weight:700;font-display:swap}
+:root{--background:#f7f6f2;--foreground:#151515;--muted:#5f5f59;--border:#e2e1da;--card:#fff;--accent:#b9d96a;--accent-deep:#5b6f2a;--radius:.75rem}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:400 1rem/1.5 Inter,system-ui,sans-serif}
+main{max-width:72rem;margin:0 auto;padding:3rem 1.25rem 4rem}
+h1{font-size:clamp(1.75rem,4vw,2.5rem);font-weight:700;letter-spacing:-.03em;margin:0 0 .25rem}
+.lede{color:var(--muted);margin:0 0 2.5rem;max-width:40rem}
+h2{font-size:1.125rem;font-weight:600;margin:2.75rem 0 1rem}
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.stage{min-height:11rem;display:grid;place-items:center;padding:1.5rem}
+.stage.dark{background:#1c1c1e;color:#f4f4f0}
+.meta{border-top:1px solid var(--border);padding:.75rem 1rem;font-size:.875rem}
+.meta b{font-weight:600}
+.meta span{color:var(--muted)}
+/* the mark */
+.tile{display:grid;place-items:center;background:var(--accent);border-radius:22%;flex:none}
+.tile svg{width:80%;height:80%;color:var(--foreground)}
+.sizes{display:flex;align-items:flex-end;gap:1.25rem;flex-wrap:wrap;justify-content:center}
+.sizes figure{margin:0;display:grid;justify-items:center;gap:.4rem;font-size:.75rem;color:var(--muted)}
+.dark .sizes figure{color:#a9a9a2}
+.toolbar{display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;border-radius:.6rem;background:#dee1e6;width:100%;max-width:18rem}
+.toolbar.night{background:#35363a}
+.toolbar i{display:block;width:16px;height:16px;border-radius:50%;background:#9aa0a6;opacity:.6}
+.toolbar .bar{flex:1;height:22px;border-radius:11px;background:#fff}
+.toolbar.night .bar{background:#202124}
+/* lockups */
+.lock{display:flex;align-items:center;gap:.6em;font-weight:600;letter-spacing:-.025em;font-size:2.25rem}
+.lock .tile{width:1.35em;height:1.35em}
+.lock.stack{flex-direction:column;gap:.35em;font-size:1.9rem}
+.lock.stack .tile{width:2.1em;height:2.1em}
+/* text-only alternatives */
+.wm{font-size:2.6rem;letter-spacing:-.035em;line-height:1}
+.a{font-weight:700}
+.b{font-weight:600}
+.dark .b mark{color:var(--foreground)}
+.b mark{background:linear-gradient(transparent 12%,var(--accent) 12%,var(--accent) 92%,transparent 92%);color:var(--foreground);padding:0 .06em;border-radius:.08em}
+.c b{font-weight:700}.c span{font-weight:400;color:var(--muted)}
+.dark .c span{color:#b8b8b1}
+.d{font-weight:600}.d i{display:inline-block;width:.22em;height:.22em;border-radius:50%;background:var(--accent);margin-left:.05em;vertical-align:baseline}
+.e{display:flex;align-items:center;gap:.55em;font-size:2.1rem;font-weight:600;letter-spacing:-.025em}
+.e .mono{display:grid;place-items:center;width:1.5em;height:1.5em;border-radius:22%;background:var(--accent);color:var(--foreground);font-weight:700;font-size:1em;letter-spacing:-.06em}
+.f{font-weight:600}
+/* "Picked": the letters keep even spacing; the outline is its own layer placed from Inter 600's glyph bounds (em),
+   halfway between the letters on every side, so it never pushes "scribe" away. Handles hang outside the box. */
+.f{--ls:.08em;letter-spacing:var(--ls)}
+.f .sel{--ring:1.5px;--c:calc((.0863em + var(--ls) - var(--ring)) / 2);--h:max(8px,.17em);position:relative;display:inline-block;isolation:isolate;line-height:.8}
+.f .sel .box{position:absolute;z-index:-1;left:calc(.0757em - var(--c));right:calc(var(--ls) + .0426em - var(--c));top:calc(.039em - var(--c));bottom:calc(.0317em - var(--c));border-radius:2px;background:rgba(185,217,106,.18);box-shadow:inset 0 0 0 var(--ring) var(--accent)}
+.f .sel .box::before,.f .sel .box::after{content:"";position:absolute;width:var(--h);height:var(--h);box-sizing:border-box;background:#fff;border:2px solid var(--accent-deep);border-radius:1px;box-shadow:0 1px 2px rgba(21,21,21,.2)}
+.f .sel .box::before{left:calc(var(--h) / -2);top:calc(var(--h) / -2)}.f .sel .box::after{right:calc(var(--h) / -2);bottom:calc(var(--h) * -1 + var(--ring))}
+.g{font-weight:700;text-transform:lowercase}
+.g span{color:var(--accent-deep)}
+.dark .g span{color:var(--accent)}
+.meta .chosen{display:inline-block;margin-left:.25rem;padding:.05rem .5rem;border-radius:999px;background:var(--accent);color:var(--foreground);font-size:.75rem;font-weight:600}
+.notes{color:var(--muted);font-size:.875rem;margin-top:.75rem}
+code{font-family:ui-monospace,monospace;font-size:.85em;background:#ecebe5;padding:.1em .35em;border-radius:.3em}
+</style>
+</head>
+<body>
+<main>
+<h1>Huescribe</h1>
+<p class="lede">Logo 03 (four petals around a smiling face) on the site's green, with the chosen "Picked" wordmark in Inter: "Hue" sits in the picker's outline. Below are all seven text-only versions; C is the one in use.</p>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="10 10 44 44">
+    <defs><mask id="hole" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><circle cx="32" cy="32" r="10.5" fill="#000"/></mask></defs>
+    <g fill="currentColor" mask="url(#hole)"><circle cx="42.61" cy="21.39" r="11"/><circle cx="42.61" cy="42.61" r="11"/><circle cx="21.39" cy="42.61" r="11"/><circle cx="21.39" cy="21.39" r="11"/></g>
+    <path d="M27 31q5 6 10 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<h2>The icon, in green</h2>
+<div class="grid">
+  <div class="card"><div class="stage"><div class="sizes">
+    <figure><div class="tile" style="width:128px;height:128px"><svg><use href="#mark"/></svg></div>128</figure>
+    <figure><div class="tile" style="width:48px;height:48px"><svg><use href="#mark"/></svg></div>48</figure>
+    <figure><div class="tile" style="width:32px;height:32px"><svg><use href="#mark"/></svg></div>32</figure>
+    <figure><div class="tile" style="width:16px;height:16px"><svg><use href="#mark"/></svg></div>16</figure>
+  </div></div><div class="meta"><b>Extension and store icon</b> <span>· black mark on #B9D96A</span></div></div>
+  <div class="card"><div class="stage" style="gap:1rem;align-content:center">
+    <div class="toolbar"><i></i><div class="bar"></div><div class="tile" style="width:16px;height:16px"><svg><use href="#mark"/></svg></div></div>
+    <div class="toolbar night"><i></i><div class="bar"></div><div class="tile" style="width:16px;height:16px"><svg><use href="#mark"/></svg></div></div>
+  </div><div class="meta"><b>In Chrome's toolbar</b> <span>· light and dark</span></div></div>
+</div>
+
+<h2>Icon with wordmark</h2>
+<div class="grid">
+  <div class="card"><div class="stage"><div class="lock"><div class="tile"><svg><use href="#mark"/></svg></div><span class="f"><span class="sel"><i class="box"></i>Hue</span>scribe</span></div></div><div class="meta"><b>Horizontal</b> <span>· Inter Semibold, −2.5% tracking</span></div></div>
+  <div class="card"><div class="stage dark"><div class="lock"><div class="tile"><svg><use href="#mark"/></svg></div><span class="f"><span class="sel"><i class="box"></i>Hue</span>scribe</span></div></div><div class="meta"><b>Horizontal, dark</b> <span>· the green tile stays the same</span></div></div>
+  <div class="card"><div class="stage"><div class="lock stack"><div class="tile"><svg><use href="#mark"/></svg></div><span class="f"><span class="sel"><i class="box"></i>Hue</span>scribe</span></div></div><div class="meta"><b>Stacked</b> <span>· square spaces, store tile</span></div></div>
+</div>
+
+<h2>Text-only alternatives</h2>
+<div class="grid">
+  <div class="card"><div class="stage"><div class="wm a">Huescribe</div></div><div class="meta"><b>A · Plain</b> <span>· Inter Bold, tight. The safe default</span></div></div>
+  <div class="card"><div class="stage"><div class="wm b"><mark>Hue</mark>scribe</div></div><div class="meta"><b>B · Highlighter</b> <span>· "Hue" marked in green, like the panel's highlight</span></div></div>
+  <div class="card"><div class="stage"><div class="wm f"><span class="sel"><i class="box"></i>Hue</span>scribe</div></div><div class="meta"><b>C · Picked</b> <span class="chosen">Chosen</span> <span>· "Hue" sits in the picker's outline with its handles</span></div></div>
+  <div class="card"><div class="stage"><div class="wm c"><b>Hue</b><span>scribe</span></div></div><div class="meta"><b>D · Two weights</b> <span>· bold "Hue", light "scribe"</span></div></div>
+  <div class="card"><div class="stage"><div class="wm d">Huescribe<i></i></div></div><div class="meta"><b>E · Green dot</b> <span>· a full stop in the brand green</span></div></div>
+  <div class="card"><div class="stage"><div class="wm g"><span>hue</span>scribe</div></div><div class="meta"><b>F · Lowercase</b> <span>· "hue" in dark green, friendlier</span></div></div>
+  <div class="card"><div class="stage"><div class="e"><div class="mono">Hs</div>Huescribe</div></div><div class="meta"><b>G · Monogram</b> <span>· "Hs" on the green tile, when you'd rather not use the flower</span></div></div>
+  <div class="card"><div class="stage dark"><div class="wm b"><mark>Hue</mark>scribe</div></div><div class="meta"><b>B on dark</b> <span>· the highlight keeps its dark text</span></div></div>
+</div>
+<p class="notes">Colors: green <code>#B9D96A</code>, deep green <code>#5B6F2A</code>, ink <code>#151515</code>. Font: Inter (free, SIL Open Font License).</p>
+</main>
+</body>
+</html>

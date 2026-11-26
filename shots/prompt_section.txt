@@ -1,0 +1,74 @@
+Apply the design details below, taken from other websites, to my website: only these changes, each where <where_on_my_site> says (change the part I already have there, or add it); keep everything else as it is. The details are numbered.
+If there is no site yet, build one from them, top to bottom: where a detail says to use my site's colors, fonts or content, use its own values instead, ask me what the site is about, and set colors, fonts and spacing up as shared variables. The color and font schemes below then set the colors and fonts of the whole site, not only the part they came with.
+First look through my project for its colors, fonts, pages and real content, as each detail's <fit_to_my_site> says. Reuse my site's existing fonts, colors, corner sizes, shadows and spacing wherever a detail doesn't set them, instead of adding near-duplicates.
+Match the values exactly (structure, order, sizes, colors, timing): they are requirements, not inspiration, except where <fit_to_my_site>, <shared_spacing>, <one_look>, <content_i_want>, <change_i_want> or <note> say otherwise.
+The color values here are deliberately shifted a little from the original site (same relationships and contrast, not the same colors): use them as given, even where a picture shows slightly different ones.
+
+<design_detail id="1" from="127.0.0.1:8001">
+<what>Color scheme and format of one section of the page (cards section (3 cards))</what>
+<values>
+Format:
+In short: section title → 3 cards in a row
+278px tall
+
+Position on the page (put it in the same relation to my parts):
+- Place in the page: part 4 of 8 from the top
+- Directly above it: text section; 129px of empty page between them
+- Directly below it: call-to-action band
+- Width: 1184px of the 1280px page, centered
+
+- section — stacked; max-width 1120px; padding 0px 32px
+  - heading (h2): section title, 1 word — text size 40px, left-aligned
+  - box — grid, 3 equal columns, gap 24px; 1120px wide
+    - card ×3 — stacked; on the left of its parent; own background; padding 28px; radius 14px; border 1px; raised (shadow)
+      - heading (h3): card title, 1 word — text size 20px, left-aligned
+      - text: card description, 5 words — text size 17px, left-aligned
+
+Spacing: sides 32px · content width 1120px · top 0px · bottom 0px · title → cards 33px · between cards 24px
+
+Color relationships (keep these even in other colors):
+- A light part: dark text on a light background
+- Its background is the same as the page's usual background
+- Compared with its neighbors: the same as the part above it, and the same as the part below it
+- Cards are the same as the background behind them, edged with a thin border
+- Headings and running text have about the same strength
+- No accent color: only neutrals
+- Neutrals are warm-tinted (cream, sand or beige), not pure gray
+- Text contrast against the background: headings 16.8:1, body text 17.5:1 (keep about these; never lower than 4.5:1 for body text)
+- Text is a soft near-black, tinted warm like the neutrals
+- Overall: calm and mostly neutral; color is rare and so it stands out
+
+Colors:
+Background: none of its own; shows #faf9f5 from behind
+How much of the area each fill covers (keep these proportions; the biggest one is the background):
+  - #fdfdfd: 65% (the background)
+  - #faf9f5: 35%
+Gradients, glows and effects: none (flat colors only; add none)
+Text:
+  - card description: #1f1c19
+  - card title: #1f1c19
+  - section title: #1f1c19
+Cards and panels:
+  - #fdfdfd, border #e4e3e1, shadow rgba(2,2,2,0.04) 0px 1px 2px 0px
+</values>
+<fit_to_my_site>
+- What goes in it (the values set the layout; this is the content):
+  - section title, about 1 word: what this section is about
+  - 3× card title, about 1 word each: one of my real services, products or features each (whichever fits this section)
+  - 3× card description, about 5 words each: one short line about each of them
+- Take the content from my site (what is there now, or my other pages). Don't invent facts (prices, numbers, reviews, logos): leave a marked placeholder.
+- Keep the "Color relationships" in my colors: darker parts stay darker, cards keep their step, neutrals keep their tint (warm, cool or pure gray), text keeps its contrast, and the accent keeps its family and stays the only strong color.
+- Keep its place (see "Position on the page"): next to my parts like the ones above and below it, with the same width and the same gap or overlap.
+- Use my other sections' side padding and content width, so all edges line up.
+- Colors: give each color the share of the area listed under "How much of the area each fill covers": the biggest is the background of that part, not the accent. A color marked accent stays on small details (buttons, links, labels, lines) and is never a large background.
+- Add no gradients, glows, patterns or colors that aren't listed: where it says "flat colors only", use plain fills.
+- Put the colors in my site's color settings (theme variables or config), named by role; keep my text and buttons readable on them.
+- Blend its edges into the sections above and below (no hard seams).
+</fit_to_my_site>
+</design_detail>
+
+<when_done>
+- Make every change for real in the code; never describe one you didn't make.
+- Rebuild any layout that differs from its outline (same parts, order, arrangement, widths, gaps); changing only sizes is not enough.
+- End with each detail by number as old → new (e.g. "cards stacked → 3 in a row"), or say it already matched and show the values.
+</when_done>
